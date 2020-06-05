@@ -1,10 +1,10 @@
-from nn.core import Layer, Variable
-from utils.initializers import get_initializer
-from utils.activators import get_activator
-from nn.functional import dense, flatten
-from nn.grad_fn import DenseBackward, FlattenBackward
-import numpy as np
-import nn.global_graph as GlobalGraph
+from ..nn.core import Layer, Variable
+from functools import reduce
+from ..utils.initializers import get_initializer
+from ..utils.activators import get_activator
+from ..nn.functional import dense, flatten
+from ..nn.grad_fn import DenseBackward, FlattenBackward
+from ..nn import global_graph as GlobalGraph
 
 
 class Flatten(Layer):
@@ -28,7 +28,7 @@ class Flatten(Layer):
 
     def compute_output_shape(self, input_shape=None):
         assert len(input_shape) >= 3
-        flatten_shape = np.prod(input_shape[self.start - 1:])
+        flatten_shape = reduce(lambda x, y: x * y, input_shape[self.start - 1:])
         output_shape = input_shape[: self.start - 1] + (flatten_shape,)
         return output_shape
 

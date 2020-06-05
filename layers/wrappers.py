@@ -1,5 +1,5 @@
-from nn.core import Layer, Variable
-import numpy as np
+from ..nn.core import Layer, Variable
+from ..nn.global_graph import np
 from typing import Union, Tuple, List
 
 

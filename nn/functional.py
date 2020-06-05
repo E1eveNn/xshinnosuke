@@ -1,7 +1,8 @@
-from nn.core import Variable
-from nn.grad_fn import *
-from utils.toolkit import im2col, initialize_ops_grad
-from typing import List
+from ..nn.core import Variable
+from ..nn.grad_fn import *
+from ..utils.toolkit import im2col, initialize_ops_grad
+from ..utils.initializers import Zeros, Ones
+from typing import Tuple
 
 
 def relu(inputs: Variable, inplace: bool = False) -> Variable:
@@ -67,7 +68,7 @@ def flatten(inputs: Variable, start: int = 1,inplace: bool = False):
     return outputs
 
 
-def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: int = 1, padding: int = 0):
+def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tuple = 1, padding: int = 0):
     # before pad size
     batch_nums, n_c_prev, n_h_prev, n_w_prev = inputs.data.shape
     # pad
@@ -75,8 +76,8 @@ def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: in
 
     out_channels, in_channels, kernel_h, kernel_w = weight.data.shape
     # output size
-    n_h = (n_h_prev - kernel_h + 2 * padding) // stride + 1
-    n_w = (n_w_prev - kernel_w + 2 * padding) // stride + 1
+    n_h = (n_h_prev - kernel_h + 2 * padding) // stride[0] + 1
+    n_w = (n_w_prev - kernel_w + 2 * padding) // stride[1] + 1
     col = im2col(pad_data, n_h, n_w, kernel_h, kernel_w, stride)
 
     col_w = weight.data.reshape(out_channels, -1).T
@@ -96,23 +97,28 @@ def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: in
     return outputs
 
 
-def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: int = None, padding: int = 0):
+def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, padding: int = 0):
     if stride is None:
         stride = kernel_size
     if padding != 0:
-        inputs.data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
-    n, c, h, w = inputs.data.shape
+        data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
+    else:
+        data = inputs.data
+
+    n, c, h, w = data.shape
     if kernel_size == stride:
         mode = 'reshape'
 
-        x_reshaped = inputs.data.reshape((n, c, h // kernel_size, kernel_size, w // kernel_size, kernel_size))
+        x_reshaped = data.reshape((n, c, h // kernel_size, kernel_size, w // kernel_size, kernel_size))
         outputs = Variable(data=x_reshaped.max(axis=3).max(axis=4), in_bounds=[inputs])
         outputs.cache['x_reshaped'] = x_reshaped
 
     else:
         mode = 'im2col'
-        out_h, out_w = (h - kernel_size + 2 * padding) // stride + 1, (w - kernel_size + 2 * padding) // stride + 1
-        col = im2col(inputs.data, out_h, out_w, kernel_size, kernel_size, stride)
+
+        out_h, out_w = (h - kernel_size) // stride[0] + 1, (w - kernel_size) // stride[1] + 1
+
+        col = im2col(data, out_h, out_w, kernel_size, kernel_size, stride)
         col = col.reshape(-1, kernel_size * kernel_size)
         pool_argmax = np.argmax(col, axis=1)
         outputs = np.max(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
@@ -129,13 +135,15 @@ def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: int = None, paddi
     return outputs
 
 
-def avg_pool2d(inputs: Variable, kernel_size: int, stride: int = None, padding: int = 0):
+def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding: int = 0):
     if padding != 0:
-        inputs.data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
+        data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
+    else:
+        data = inputs.data
 
-    n, c, h, w = inputs.data.shape
-    out_h, out_w = (h - kernel_size + 2 * padding) // stride + 1, (w - kernel_size + 2 * padding) // stride + 1
-    col = im2col(inputs.data, out_h, out_w, kernel_size, kernel_size, stride)
+    n, c, h, w = data.shape
+    out_h, out_w = (h - kernel_size) // stride[0] + 1, (w - kernel_size) // stride[1] + 1
+    col = im2col(data, out_h, out_w, kernel_size, kernel_size, stride)
     col = col.reshape(-1, kernel_size * kernel_size)
     pool_argmean = np.array([range(col.shape[1])])
     outputs = np.mean(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
@@ -159,6 +167,7 @@ def pad_2d(inputs: Variable, padding: tuple, inplace: bool = False):
                                    'constant'), in_bounds=[inputs])
     outputs.cache['pad_size'] = padding
     outputs.grad_fn = Pad2DBackward
+    inputs.out_bounds.append(outputs)
     initialize_ops_grad(inputs)
     return outputs
 
@@ -170,8 +179,67 @@ def dropout2d(inputs: Variable, keep_prob: float = 0.5):
     outputs.cache['mask'] = random_tensor
     outputs.cache['keep_prob'] = keep_prob
     outputs.grad_fn = Dropout2DBackward
+    inputs.out_bounds.append(outputs)
     initialize_ops_grad(inputs)
     return outputs
+
+
+def batchnorm_2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, epsilon: float, training: bool,
+                 momentum: float = 0.99, moving_mean: np.ndarray = None, moving_variance: np.ndarray = None):
+    if moving_mean is not None:
+        inputs.cache['moving_mean'] = moving_mean
+    if moving_variance is not None:
+        inputs.cache['moving_variance'] = moving_variance
+    if 'moving_mean' not in inputs.cache.keys():
+        inputs.cache['moving_mean'] = Zeros()(inputs.shape[axis])
+    if 'moving_variance' not in inputs.cache.keys():
+        inputs.cache['moving_variance'] = Ones()(inputs.shape[axis])
+
+    inputs_data = inputs.data
+    ndim = inputs_data.ndim
+
+    if not (axis == -1 or axis == ndim - 1):
+        inputs_data = np.swapaxes(inputs_data, axis, -1)
+
+    before_reshape_shape = inputs_data.shape
+    inputs_data = inputs_data.reshape(-1, inputs.data.shape[axis])
+
+    if training:
+        # calc mean
+        mean = np.mean(inputs_data, axis=0)
+        # calc var
+        var = np.var(inputs_data, axis=0)
+        # x minus u
+        xmu = inputs_data - mean
+        sqrtvar = np.sqrt(var + epsilon)
+        normalized_x = xmu / sqrtvar
+        outputs = gamma.data * normalized_x + beta.data
+
+        inputs.cache['xmu'] = xmu
+        inputs.cache['axis'] = axis
+        inputs.cache['sqrtvar'] = sqrtvar
+        inputs.cache['normalized_x'] = normalized_x
+        inputs.cache['moving_mean'] = momentum * inputs.cache['moving_mean'] + (1 - momentum) * mean
+        inputs.cache['moving_variance'] = momentum * inputs.cache['moving_variance'] + (1 - momentum) * var
+
+    else:
+        scale = gamma.data / (np.sqrt(inputs.cache['moving_variance'] + epsilon))
+        outputs = inputs * scale + (beta.data - inputs.cache['moving_mean'] * scale)
+
+    outputs = outputs.reshape(before_reshape_shape)
+
+    if not (axis == -1 or axis == ndim - 1):
+        # for instance,outputs:(N,W,H,C), self.axis=1, after swapaxes,outputs:(N,C,H,W)
+        outputs = np.swapaxes(outputs, axis, -1)
+
+    outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta])
+    outputs.grad_fn = Batchnorm2DBackward
+    initialize_ops_grad(inputs)
+    inputs.out_bounds.append(outputs)
+    return outputs
+
+
+
 
 
 def concatenate(*variables: Variable, axis: int, output: Variable = None, name: str = None):

@@ -1,6 +1,6 @@
-from nn.core import Layer, Variable
-from nn.grad_fn import ReluBackward, SigmoidBackward, TanhBackward
-from nn.functional import relu, sigmoid, tanh
+from ..nn.core import Layer, Variable
+from ..nn.grad_fn import ReluBackward, SigmoidBackward, TanhBackward
+from ..nn.functional import relu, sigmoid, tanh
 
 
 class ReLU(Layer):
@@ -10,8 +10,10 @@ class ReLU(Layer):
 
     def __call__(self, inbound):
         if isinstance(inbound, Variable):
-            output = relu(inbound, self.inplace)
-            return output
+            # output = relu(inbound, self.inplace)
+            #
+            # return output
+            return self.forward(inbound)
         super().__call__(inbound)
         return self
 
@@ -19,6 +21,13 @@ class ReLU(Layer):
         if x is not None:
             self.input_data = x
         self.data = relu(self.input_data, inplace=self.inplace)
+        self.data.cache['inplace'] = self.inplace
+        if self.inplace:
+            if 'grad_fn' not in self.data.cache:
+                self.data.cache['grad_fn'] = []
+            self.data.cache['grad_fn'].append(self.data.grad_fn)
+            self.data.cache['mask'] = self.input_data.data < 0
+            self.data.grad_fn = ReluBackward
         self.connect_init(self.data, is_training)
         return self.data
 

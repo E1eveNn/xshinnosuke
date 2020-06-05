@@ -1,9 +1,9 @@
-from nn.core import Layer, Variable
-import numpy as np
+from ..nn.core import Layer, Variable
+from ..nn.global_graph import np
 from functools import reduce
-from utils.initializers import get_initializer
-from nn.functional import dropout2d
-from nn.grad_fn import Dropout2DBackward
+from ..utils.initializers import get_initializer
+from ..nn.functional import dropout2d, batchnorm_2d
+from ..nn.grad_fn import Dropout2DBackward, Batchnorm2DBackward
 
 
 class Dropout(Layer):
@@ -34,7 +34,7 @@ class Dropout(Layer):
 
 class BatchNormalization(Layer):
     def __init__(self, epsilon=1e-6, momentum=0.99, axis=1, gamma_initializer='ones', beta_initializer='zeros',
-                 moving_mean_initializer='zeros', moving_variance_initializer='ones'):
+                 moving_mean_initializer='zeros', moving_variance_initializer='ones', **kwargs):
         # axis=1 when input Fully Connected Layers(data shape:(M,N),where M donotes Batch-size,and N represents feature nums)  ---also axis=-1 is the same
         # axis=1 when input Convolution Layers(data shape:(M,C,H,W),represents Batch-size,Channels,Height,Width,respectively)
         self.epsilon = epsilon
@@ -47,9 +47,11 @@ class BatchNormalization(Layer):
         self.moving_mean = None
         self.moving_variance = None
         self.cache = None
-        super(BatchNormalization, self).__init__()
+        super(BatchNormalization, self).__init__(**kwargs)
 
     def initial_params(self, input_shape=None):
+        if input_shape is not None:
+            self.input_shape = input_shape
         assert len(self.input_shape) >= 1
         n_in = self.input_shape[self.axis - 1]
         gamma = Variable(self.gamma_initializer(n_in))
@@ -60,6 +62,11 @@ class BatchNormalization(Layer):
         self.moving_variance = self.moving_variance_initializer(n_in)
 
     def __call__(self, inbound):
+        if isinstance(inbound, Variable):
+            if len(self.variables) == 0:
+                self.initial_params(inbound.shape[1:])
+            output = self.forward(inbound)
+            return output
         super().__call__(inbound)
         return self
 
@@ -67,76 +74,13 @@ class BatchNormalization(Layer):
         if x is not None:
             self.input_data = x
 
-        inputs = self.input_data.data
-        ndim = inputs.ndim
-
-        if not (self.axis == -1 or self.axis == ndim - 1):
-            inputs = np.swapaxes(inputs, self.axis, -1)
-
-        before_reshape_shape = inputs.shape
-        inputs = inputs.reshape(-1, self.input_data.data.shape[self.axis])
-        gamma, beta = self.variables
-        if is_training:
-            # calc mean
-            mean = np.mean(inputs, axis=0)
-            # calc var
-            var = np.var(inputs, axis=0)
-            # x minus u
-            xmu = inputs - mean
-            sqrtvar = np.sqrt(var + self.epsilon)
-            normalized_x = xmu / sqrtvar
-            outputs = gamma.data * normalized_x + beta.data
-
-            self.cache = (xmu, sqrtvar, normalized_x)
-            self.moving_mean = self.momentum * self.moving_mean + (1 - self.momentum) * mean
-            self.moving_variance = self.momentum * self.moving_variance + (1 - self.momentum) * var
-        else:
-            scale = gamma.data / (np.sqrt(self.moving_variance + self.epsilon))
-            outputs = inputs * scale + (beta.data - self.moving_mean * scale)
-
-        outputs = outputs.reshape(before_reshape_shape)
-
-        if not (self.axis == -1 or self.axis == ndim - 1):
-            # for instance,outputs:(N,W,H,C), self.axis=1, after swapaxes,outputs:(N,C,H,W)
-            outputs = np.swapaxes(outputs, self.axis, -1)
-
-        self.data = Variable(data=outputs)
+        self.data = batchnorm_2d(self.input_data, self.variables[0], self.variables[1], self.axis, self.epsilon,
+                                 is_training, self.momentum, self.moving_mean, self.moving_variance)
         self.connect_init(self.data, is_training)
         return self.data
 
     def backward(self, gradients=None):
-        grad = self.data.grad
-        ndim = grad.ndim
-        if not (self.axis == -1 or self.axis == ndim - 1):
-            # for instance,inputs:(N,C,H,W),self.axis=1,after swapaxes,Inputs:(N,W,H,C)
-            grad = np.swapaxes(grad, self.axis, -1)
-
-        # (N,W,H,C) / (N,M)
-        before_reshape_shape = grad.shape
-        # (N*W*H,C) /(N,M)
-        grad = grad.reshape(-1, self.input_data.data.shape[self.axis])
-
-        gamma, beta = self.variables
-        xmu, sqrtvar, normalized_x = self.cache
-        if gamma.requires_grad:
-            gamma.grad += np.sum(grad * normalized_x, axis=0)
-
-        if beta.requires_grad:
-            beta.grad += np.sum(grad, axis=0)
-
-        N = normalized_x.shape[0]
-        dnormalized_x = grad * gamma.data
-        dvar = np.sum(np.power(- 1./sqrtvar, 3) * xmu * dnormalized_x * 0.5, axis=0)
-        dmean = np.sum(- dnormalized_x / sqrtvar, axis=0) - 2 * dvar * np.mean(xmu, axis=0)
-        outputs = dnormalized_x / sqrtvar + dvar * 2 * xmu / N + dmean / N
-        outputs = outputs.reshape(before_reshape_shape)
-
-        if not (self.axis == -1 or self.axis == ndim - 1):
-            # for instance,outputs:(N,W,H,C),self.axis=1,after swapaxes,outputs:(N,C,H,W)
-            outputs = np.swapaxes(outputs, self.axis, -1)
-
-        if self.input_data.requires_grad:
-            self.input_data.grad += outputs
+        Batchnorm2DBackward(self.data)
 
 
 class LayerNormalization(Layer):

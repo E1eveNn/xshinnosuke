@@ -1,6 +1,7 @@
 # 写关于Node和Layer运算所需要的函数
-import numpy as np
-from utils.toolkit import col2im
+from ..nn.global_graph import np
+from ..utils.toolkit import col2im
+from functools import reduce
 
 
 def AddBackward(outputs):
@@ -10,8 +11,11 @@ def AddBackward(outputs):
 
 
 def IAddBackward(outputs):
-    if outputs.in_bounds[-1].requires_grad:
-        outputs.in_bounds[-1].grad += outputs.grad
+    inputs = outputs.in_bounds.pop()
+    if inputs.requires_grad:
+        inputs.grad += outputs.grad
+    outputs.grad_fn = outputs.cache['grad_fn'].pop()
+    outputs.grad_fn(outputs)
 
 
 def NegBackward(outputs):
@@ -102,11 +106,17 @@ def PowBackward(outputs):
 
 
 def ReluBackward(outputs):
-    inputs, = outputs.in_bounds
-    if inputs.requires_grad:
-        grad = outputs.grad
-        grad[outputs.data < 0] = 0
-        inputs.grad += grad
+    if outputs.cache['inplace']:
+        mask = outputs.cache['mask']
+        outputs.grad[mask] = 0
+        outputs.grad_fn = outputs.cache['grad_fn'].pop()
+        outputs.grad_fn(outputs)
+    else:
+        inputs, = outputs.in_bounds
+        if inputs.requires_grad:
+            grad = outputs.grad
+            grad[inputs.data < 0] = 0
+            inputs.grad += grad
 
 
 def SigmoidBackward(outputs):
@@ -177,7 +187,7 @@ def Maxpool2DBackward(outputs):
         dmax[np.arange(outputs.cache['pool_argmax'].size), outputs.cache['pool_argmax'].flatten()] = grad.flatten()
         dmax = dmax.reshape(grad.shape + (outputs.cache['kernel_size'] * outputs.cache['kernel_size'],))
 
-        dcol = dmax.reshape(np.prod(dmax.shape[:3]), -1)
+        dcol = dmax.reshape(reduce(lambda x, y: x * y, dmax.shape[:3]), -1)
         grad = col2im(inputs.shape, outputs.cache['pad_size'], outputs.cache['kernel_size'],
                          outputs.cache['kernel_size'], outputs.cache['stride'], dcol)
 
@@ -190,7 +200,7 @@ def Avgpool2DBackward(outputs):
     grad = outputs.grad.transpose(0, 2, 3, 1)
     dmean = np.repeat(grad.flatten(), outputs.cache['pool_argmean'].size) / (outputs.cache['kernel_size'] * outputs.cache['kernel_size'])
     dmean = dmean.reshape(grad.shape + (outputs.cache['kernel_size'] * outputs.cache['kernel_size'],))
-    dcol = dmean.reshape(np.prod(dmean.shape[:3]), -1)
+    dcol = dmean.reshape(reduce(lambda x, y: x * y, dmean.shape[:3]), -1)
     grad = col2im(inputs.shape, outputs.cache['pad_size'], outputs.cache['kernel_size'],
                          outputs.cache['kernel_size'], outputs.cache['stride'], dcol)
 
@@ -209,6 +219,44 @@ def Dropout2DBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
         inputs.grad += outputs.grad * outputs.cache['mask'] * outputs.cache['keep_prob']
+
+
+def Batchnorm2DBackward(outputs):
+    inputs, gamma, beta = outputs.in_bounds
+    if inputs.requires_grad:
+        grad = outputs.grad
+        ndim = grad.ndim
+        axis = inputs.cache['axis']
+        xmu = inputs.cache['xmu']
+        sqrtvar = inputs.cache['sqrtvar']
+        normalized_x = inputs.cache['normalized_x']
+        if not (axis == -1 or axis == ndim - 1):
+            # for instance,inputs:(N,C,H,W),self.axis=1,after swapaxes,Inputs:(N,W,H,C)
+            grad = np.swapaxes(grad, axis, -1)
+
+        # (N,W,H,C) / (N,M)
+        before_reshape_shape = grad.shape
+        # (N*W*H,C) /(N,M)
+        grad = grad.reshape(-1, inputs.data.shape[axis])
+
+        if gamma.requires_grad:
+            gamma.grad += np.sum(grad * normalized_x, axis=0)
+
+        if beta.requires_grad:
+            beta.grad += np.sum(grad, axis=0)
+
+        N = normalized_x.shape[0]
+        dnormalized_x = grad * gamma.data
+        dvar = np.sum(np.power(- 1. / sqrtvar, 3) * xmu * dnormalized_x * 0.5, axis=0)
+        dmean = np.sum(- dnormalized_x / sqrtvar, axis=0) - 2 * dvar * np.mean(xmu, axis=0)
+        grad = dnormalized_x / sqrtvar + dvar * 2 * xmu / N + dmean / N
+        grad = grad.reshape(before_reshape_shape)
+
+        if not (axis == -1 or axis == ndim - 1):
+            # for instance,outputs:(N,W,H,C),self.axis=1,after swapaxes,outputs:(N,C,H,W)
+            grad = np.swapaxes(grad, axis, -1)
+
+        inputs.grad += grad
 
 
 def MeanSquaredbackward(outputs):
@@ -287,7 +335,8 @@ def CrossEntropyBackward(outputs):
     y_pred, y_true = outputs.in_bounds
     # # before softmax
     before_softmax_y_pred = y_pred.in_bounds[0]
-    to_sum_dim = np.prod(y_pred.data.shape[:-1])
+    to_sum_dim = reduce(lambda x, y: x * y, y_pred.data.shape[:-1])
+    # to_sum_dim = np.prod(y_pred.data.shape[:-1])
     last_dim = y_pred.data.shape[-1]
     n = y_pred.data.shape[0]
     probs = y_pred.data.reshape(-1, last_dim)

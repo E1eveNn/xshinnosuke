@@ -1,6 +1,6 @@
-from nn.core import Layer, Variable
+from ..nn.core import Layer, Variable
 from ..utils.initializers import get_initializer
-import numpy as np
+from ..nn.global_graph import np
 
 
 class Embedding(Layer):

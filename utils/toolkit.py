@@ -1,6 +1,5 @@
-import numpy as np
-from numpy import ndarray
-from typing import List
+from ..nn.global_graph import np
+from typing import List, Tuple
 
 
 class ProgressBar:
@@ -148,7 +147,7 @@ class DataLoader:
             raise StopIteration
         return self.mini_batches[self.sp]
 
-    def make_batches(self, datas: List[ndarray], batch_size: int, seed: int, shuffle: bool = False):
+    def make_batches(self, datas: List[np.ndarray], batch_size: int, seed: int, shuffle: bool = False):
         np.random.seed(seed)
         m = datas[0].shape[0]
         if shuffle:
@@ -191,105 +190,35 @@ def format_time(second_time: float) -> str:
         return '%ds' % second_time
 
 
-def topological_sort(inputs, outputs, mode='forward'):
-    """
-    Sort generic nodes in topological order using Kahn's Algorithm.
-    Returns a list of sorted nodes.
-    """
-    name_dict = dict()
-    G = {}
-    graph = []
-    outputs = list([outputs])
-    if mode == 'forward':
-        layers = list([inputs])
-        while len(layers) > 0:
-            n = layers.pop(0)
-            if n in outputs:
-                break
-            if n not in G:
-                G[n] = {'in': set(), 'out': set()}
-            for m in n.out_bounds:
-                if m not in G:
-                    G[m] = {'in': set(), 'out': set()}
-                G[n]['out'].add(m)
-                G[m]['in'].add(n)
-                layers.append(m)
-
-        S = set(list([inputs]))
-        while len(S) > 0:
-            n = S.pop()
-            graph.append(n)
-            if n.name is None:
-                if n.__class__.__name__ in name_dict:
-                    name_dict[n.__class__.__name__] += 1
-                else:
-                    name_dict[n.__class__.__name__] = 0
-                n.name = n.__class__.__name__.lower() + str(name_dict[n.__class__.__name__])
-            if n == outputs:
-                break
-            for m in n.out_bounds:
-
-                G[n]['out'].remove(m)
-                G[m]['in'].remove(n)
-                # if no other incoming edges add to S
-                if len(G[m]['in']) == 0:
-                    S.add(m)
-
-    elif mode == 'backward':
-        layers = [inputs]
-        while len(layers) > 0:
-            n = layers.pop(0)
-            if n not in G:
-                G[n] = {'in': set(), 'out': set()}
-            for m in n.in_bounds:
-                if m not in G:
-                    G[m] = {'in': set(), 'out': set()}
-                G[n]['out'].add(m)
-                G[m]['in'].add(n)
-                layers.append(m)
-        S = set([inputs])
-        while len(S) > 0:
-            n = S.pop()
-            graph.append(n)
-            for m in n.in_bounds:
-                G[n]['out'].remove(m)
-                G[m]['in'].remove(n)
-                # if no other incoming edges add to S
-                if len(G[m]['in']) == 0:
-                    S.add(m)
-
-    return graph
-
-
-def im2col(inputs: ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: int, stride: int):
-    batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs.data.shape
+def im2col(inputs: np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: int, stride: Tuple):
+    batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs.shape
     col = np.zeros((batch_nums, n_C_prev, kernel_h, kernel_w, out_h, out_w))
 
     for y in range(kernel_h):
-        y_max = y + stride * out_h
+        y_max = y + stride[0] * out_h
         for x in range(kernel_w):
-            x_max = x + stride * out_w
-            col[:, :, y, x, :, :] = inputs[:, :, y:y_max:stride, x:x_max:stride]
+            x_max = x + stride[1] * out_w
+            col[:, :, y, x, :, :] = inputs[:, :, y:y_max:stride[0], x:x_max:stride[1]]
 
     col = col.transpose((0, 4, 5, 1, 2, 3)).reshape(batch_nums * out_h * out_w, -1)
     return col
 
 
-def col2im(inputs_shape: tuple, pad_size: int, kernel_h: int, kernel_w: int, stride: int, dcol: ndarray):
+def col2im(inputs_shape: tuple, pad_size: int, kernel_h: int, kernel_w: int, stride: Tuple, dcol: np.ndarray):
     batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs_shape  # 填充前的shape
-    n_H = (n_H_prev + 2 * pad_size - kernel_h) // stride + 1
-    n_W = (n_W_prev + 2 * pad_size - kernel_w) // stride + 1
+    n_H = (n_H_prev + 2 * pad_size - kernel_h) // stride[0] + 1
+    n_W = (n_W_prev + 2 * pad_size - kernel_w) // stride[1] + 1
 
     dcol = dcol.reshape((batch_nums, n_H, n_W, n_C_prev, kernel_h, kernel_w)).transpose(0, 3, 4, 5, 1, 2)
 
     output = np.zeros(
-        (batch_nums, n_C_prev, n_H_prev + 2 * pad_size + stride - 1, n_W_prev + 2 * pad_size + stride - 1))
+        (batch_nums, n_C_prev, n_H_prev + 2 * pad_size + stride[0] - 1, n_W_prev + 2 * pad_size + stride[1] - 1))
 
     for y in range(kernel_h):
-        y_max = y + stride * n_H
+        y_max = y + stride[0] * n_H
         for x in range(kernel_w):
-            x_max = x + stride * n_W
-            output[:, :, y:y_max:stride, x:x_max:stride] += dcol[:, :, y, x, :, :]
+            x_max = x + stride[1] * n_W
+            output[:, :, y:y_max:stride[0], x:x_max:stride[1]] += dcol[:, :, y, x, :, :]
 
     return output[:, :, pad_size:n_H_prev + pad_size, pad_size:n_W_prev + pad_size]
 

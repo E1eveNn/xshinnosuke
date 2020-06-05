@@ -1,14 +1,13 @@
-from nn.grad_fn import *
+from ..nn.grad_fn import *
 from typing import List, Tuple, Union
-from numpy import ndarray
-import numpy as np
-import nn.global_graph as GlobalGraph
-from utils.toolkit import initialize_ops_grad
+import gc
+from ..nn import global_graph as GlobalGraph
+from ..utils.toolkit import initialize_ops_grad
 
 
 # 第一种数据类型Node，也就是我们基本的tensor type，每一个tensor都是Node的实例化类型
 class Node:
-    def __init__(self, in_bounds: List = None, out_bounds: List = None, data: ndarray = None,
+    def __init__(self, in_bounds: List = None, out_bounds: List = None, data: GlobalGraph.np.ndarray = None,
                  shape: Union[List, Tuple] = None, name: str = None, requires_grad: bool = False):
         """
         :param in_bounds: 与当前tensor相连的Node或者是Layer，需要重载下：一.可能是Layer数组，二.可能是Node数组（主要以Variable为主）
@@ -32,6 +31,8 @@ class Node:
         # tensor求梯度的函数，这个要绑定一个函数，比如绑定的是AddBackward（self.grad_fn = AddBackward），那么调用self.grad_fn和调用AddBackward一样
 
         self.grad_fn = None
+        # 存储一些必要的数据用于反向传播，类型为一个字典，通过key-value形式索引
+        self.cache = {}
 
     # 该方法相当于重载对类的print, info就是print类后显示的结果
     def __repr__(self) -> str:
@@ -74,6 +75,10 @@ class Node:
 
         self.data += other.data
         self.in_bounds.append(other)
+        other.out_bounds.append(self)
+        if 'grad_fn' not in self.cache:
+            self.cache['grad_fn'] = []
+        self.cache['grad_fn'].append(self.grad_fn)
         self.grad_fn = IAddBackward
         return self
 
@@ -101,7 +106,7 @@ class Node:
         initialize_ops_grad(self)
         return outputs
 
-    def backward(self, gradients: ndarray = None):
+    def backward(self, gradients: GlobalGraph.np.ndarray = None):
         if self.grad_fn is None:
             raise ValueError('can not solve grad on %s' % self)
         # 如果是标量，默认该标量梯度为1
@@ -114,6 +119,12 @@ class Node:
                 for node in reversed(graph):
                     if node.grad_fn is not None:
                         node.grad_fn(node)
+                    if node == GlobalGraph.inputs or node == GlobalGraph.outputs:
+                        continue
+                    del node.cache, node.data, node.grad, node.grad_fn, node.in_bounds, node.out_bounds, node.shape, \
+                        node.name, node.requires_grad
+                    del node
+                gc.collect()
                 # 这里反向传播计算完就把这个图销毁，在C++中就是释放内存,把GlobalGraph的inputs, outputs和graph的内存都释放掉，或者说重置参数
                 GlobalGraph.reset_graph()
 
@@ -224,7 +235,7 @@ class Node:
 
 
 class Variable(Node):
-    def __init__(self, data: Union[ndarray, int, float], in_bounds: List = None, out_bounds: Union[List, Tuple] = None,
+    def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None, out_bounds: Union[List, Tuple] = None,
                  name: str = None, requires_grad: bool = True, dtype=np.float64):
         # Variable初始化时必须提供data值，data值可能传入的是一个int或者float，我们需要把它包装成numpy矩阵（cpp中就包装成我们选的矩阵库类型）
         data = np.asarray(data, dtype=dtype)  # 数据类型用float64吧，float32也行
@@ -235,8 +246,6 @@ class Variable(Node):
                       shape=data.shape,
                       name=name,
                       requires_grad=requires_grad)
-        # 存储一些必要的数据用于反向传播，类型为一个字典，通过key-value形式索引
-        self.cache = {}
 
     def __getitem__(self, item):
         ret = Variable(data=self.data[item])
@@ -248,7 +257,7 @@ class Variable(Node):
 
 
 class Constant(Node):
-    def __init__(self, data: Union[ndarray, int, float], in_bounds: List = None, out_bounds: Union[List, Tuple] = None,
+    def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None, out_bounds: Union[List, Tuple] = None,
                  name: str = None):
         # Constant初始化时必须提供data值，并且一旦初始化就不可修改，Constant因为值不需要修改，也就没必要计算梯度，默认require_grads为False
         # !!!!!!!!!!!!!!!!注意Constant里的这个data要是const类型的，总之就是Constant的data一旦初始化后没办法被修改
@@ -340,7 +349,7 @@ class Layer:
             initialize_ops_grad(self.data)
             initialize_ops_grad(*self.variables)
 
-    def backward(self, gradients: ndarray = None):
+    def backward(self, gradients: GlobalGraph.np.ndarray = None):
         for inbound in self.in_bounds:
             if inbound.data.requires_grad:
                 inbound.data.grad += gradients
@@ -352,10 +361,10 @@ def add(*ops: Variable) -> Variable:
     for op in ops:
         data += op.data
     outputs = Variable(in_bounds=[*ops], data=data)
+    initialize_ops_grad(ops)
     # 绑定反向求梯度的函数
     outputs.grad_fn = AddBackward
     for op in ops:
-        initialize_ops_grad(op)
         op.out_bounds.append(outputs)
     return outputs
 

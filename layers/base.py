@@ -1,9 +1,8 @@
-from nn.core import Layer, Variable
-import numpy as np
-from utils.activators import get_activator
-from nn.functional import pad_2d
-from nn.core import add
-from nn.grad_fn import Pad2DBackward, AddBackward, NegBackward, MultiplyBackward, MatmulBackward, LogBackward, ExpBackward, SumBackward, MeanBackward, AbsBackward, PowBackward
+from ..nn.core import Layer, Variable
+from ..nn.global_graph import np
+from ..utils.activators import get_activator
+from ..nn.functional import pad_2d
+from ..nn.grad_fn import Pad2DBackward, AddBackward, NegBackward, MultiplyBackward, MatmulBackward, LogBackward, ExpBackward, SumBackward, MeanBackward, AbsBackward, PowBackward
 from typing import Tuple, Union, List
 
 
@@ -103,12 +102,17 @@ class Add(Layer):
     def forward(self, x: Variable = None, is_training: bool = True, *args):
         if x is not None:
             self.input_data = x
-        self.data = add(self.in_bounds)
+        data = 0
+        for in_bound in self.in_bounds:
+            data += in_bound.data.data
+        self.data = Variable(data, in_bounds=self.in_bounds)
         self.connect_init(self.data, is_training)
         return self.data
 
     def backward(self, gradients=None):
-        AddBackward(self.data)
+        for in_bound in self.in_bounds:
+            if in_bound.data.requires_grad:
+                in_bound.data.grad += self.data.grad
 
 
 class Negative(Layer):

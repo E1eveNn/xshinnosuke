@@ -1,8 +1,9 @@
-from utils.objectives import get_objective
-from utils.optimizers import get_optimizer
-from utils.toolkit import *
-from nn.core import Variable, Layer
-from nn.functional import concatenate
+from .utils.objectives import get_objective
+from .utils.optimizers import get_optimizer
+from .utils.toolkit import *
+from .nn.core import Variable, Layer
+from .nn.functional import concatenate
+from .nn.global_graph import np, topological_sort
 import time
 import pickle
 from typing import List, Tuple, Union
@@ -52,13 +53,13 @@ class Module:
         self.is_training = False
 
     def fit(self,
-            x: ndarray,
-            y: ndarray,
+            x: np.ndarray,
+            y: np.ndarray,
             batch_size: int = 64,
             epochs: int = 1,
             verbose: int = 1,
             shuffle: bool = True,
-            validation_data: Tuple[ndarray] = None,
+            validation_data: Tuple[np.ndarray] = None,
             validation_split: float = 0.,
             initial_epoch: int = 0,
             ) -> dict:
@@ -72,6 +73,10 @@ class Module:
             train_x, train_y = x, y
 
         history = dict()
+
+        train_dataset = DataSet(train_x, train_y)
+        train_dataloader = DataLoader(train_dataset, batch_size, shuffle)
+
         for epoch in range(initial_epoch, epochs):
             epoch_time = AverageMeter(name='epoch_time')
             train_loss = AverageMeter(name='train_loss')
@@ -86,9 +91,6 @@ class Module:
                 'validation_acc': valid_acc
             }
             start_time = time.time()
-
-            train_dataset = DataSet(train_x, train_y)
-            train_dataloader = DataLoader(train_dataset, batch_size, shuffle)
 
             if verbose != 0:
                 print('\033[1;31m Epoch[%d/%d]\033[0m' % (epoch + 1, epochs))
@@ -107,7 +109,7 @@ class Module:
                 self.optimizer.step()
 
                 epoch_time.update(time.time() - start_time)
-                train_loss.update(loss.data)
+                train_loss.update(loss.data.tolist())
                 train_acc.update(self.loss.acc(pred, ys))
 
                 if validation_data is not None:
@@ -123,7 +125,7 @@ class Module:
             print()
         return history
 
-    def evaluate(self, x: ndarray, y: ndarray, batch_size: int = None):
+    def evaluate(self, x: np.ndarray, y: np.ndarray, batch_size: int = None):
         self.eval()
         if batch_size is not None:
             assert type(batch_size) is int
@@ -139,8 +141,8 @@ class Module:
                 acc_list.append(metric[0])
                 loss_list.append(metric[1])
 
-            acc = sum(acc_list) / len(acc_list)
-            loss = sum(loss_list) / len(loss_list)
+            acc = np.mean(acc_list).tolist()
+            loss = np.mean(loss_list).tolist()
         else:
             x = Variable(x)
             y = Variable(y)
@@ -149,7 +151,7 @@ class Module:
 
         return acc, loss
 
-    def predict(self, x: ndarray, batch_size: int = None):
+    def predict(self, x: np.ndarray, batch_size: int = None):
         self.eval()
         if batch_size is not None:
             assert type(batch_size) is int
@@ -157,6 +159,7 @@ class Module:
             test_dataloader = DataLoader(test_dataset, batch_size)
             pred_list = []
             for xs in test_dataloader:
+                xs = Variable(xs)
                 y_pred = self.forward(xs)
                 pred_list.append(y_pred)
             pred = concatenate(*pred_list, axis=0)
@@ -165,13 +168,29 @@ class Module:
 
         return pred
 
-    def forward(self, x):
+    def forward(self, x, *args):
         raise NotImplemented
 
     def backward(self, loss: Variable):
         loss.backward()
         for layer in reversed(self.graph):
             layer.backward()
+
+    def save(self, save_path):
+        if not save_path.endswith('.pkl'):
+            save_path += '.pkl'
+        with open(save_path, 'wb') as f:
+            pickle.dump([self.graph, self.optimizer, self.loss], f)
+
+    def load(self, model_path):
+        if not model_path.endswith('.pkl'):
+            model_path += '.pkl'
+        with open(model_path, 'rb') as f:
+            graph, optimizer, loss = pickle.load(f)
+
+        self.graph = graph
+        self.optimizer = optimizer
+        self.loss = loss
 
     def __str__(self):
         bar_nums = 120
@@ -218,9 +237,9 @@ class Module:
 
 
 class Sequential(Module):
-    def __init__(self, layers: list = None):
-        self.graph = [] if layers is None else layers
+    def __init__(self, *layers: Layer):
         super().__init__()
+        self.graph = [] if layers is None else layers
 
     def add(self, layer):
         self.graph.append(layer)
@@ -237,9 +256,12 @@ class Sequential(Module):
                     self.trainable_variables.append(v)
         self.loss = get_objective(loss)
         self.optimizer = get_optimizer(optimizer)
+        self.optimizer.trainable_variables = self.trainable_variables
 
-    def forward(self, x):
+    def forward(self, x, *args):
         for layer in self.graph:
+            if hasattr(layer, 'variables') and len(layer.variables) == 0:
+                layer.initial_params(x.shape[1:])
             x = layer.forward(x, self.is_training)
         return x
 
@@ -269,8 +291,7 @@ class Model(Module):
 
     def compile(self, optimizer, loss, **kwargs):
         assert self.inputs is not None and self.outputs is not None
-        self.graph = topological_sort(self.inputs, self.outputs, mode='forward')
-        # self.backward_graph = topological_sort(self.outputs, mode='backward')
+        self.graph = topological_sort(self.inputs, self.outputs)
         for g in self.graph:
             g.initial_params()
             for v in g.variables:
@@ -280,21 +301,10 @@ class Model(Module):
         self.optimizer = get_optimizer(optimizer, **kwargs)
         self.optimizer.trainable_variables = self.trainable_variables
 
-    def forward(self, x: Variable):
+    def forward(self, x: Variable, *args):
         self.inputs.input_data = x
         outputs = None
         for layer in self.graph:
             outputs = layer.forward(is_training=self.is_training)
         return outputs
 
-    def save(self, save_path):
-        with open(save_path + '.pkl', 'wb') as f:
-            pickle.dump([self.graph, self.optimizer, self.loss], f)
-
-    def load(self, model_path):
-        with open(model_path + '.pkl', 'rb') as f:
-            graph, optimizer, loss = pickle.load(f)
-
-        self.graph = graph
-        self.optimizer = optimizer
-        self.loss = loss

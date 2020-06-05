@@ -1,5 +1,4 @@
-import numpy as np
-from nn.core import Variable
+from ..nn.global_graph import np
 
 
 def to_categorical(inputs):
