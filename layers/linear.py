@@ -1,7 +1,7 @@
 from ..nn.core import Layer, Variable
 from functools import reduce
-from ..utils.initializers import get_initializer
-from ..utils.activators import get_activator
+from ..nn.initializers import get_initializer
+from .activators import get_activator
 from ..nn.functional import dense, flatten
 from ..nn.grad_fn import DenseBackward, FlattenBackward
 from ..nn import global_graph as GlobalGraph

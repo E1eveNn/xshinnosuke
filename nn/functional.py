@@ -1,7 +1,7 @@
-from ..nn.core import Variable
-from ..nn.grad_fn import *
-from ..utils.toolkit import im2col, initialize_ops_grad
-from ..utils.initializers import Zeros, Ones
+from .core import Variable
+from .grad_fn import *
+from .toolkit import im2col, initialize_ops_grad
+from xshinnosuke.nn.initializers import Zeros, Ones
 from typing import Tuple
 
 
@@ -237,9 +237,6 @@ def batchnorm_2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, e
     initialize_ops_grad(inputs)
     inputs.out_bounds.append(outputs)
     return outputs
-
-
-
 
 
 def concatenate(*variables: Variable, axis: int, output: Variable = None, name: str = None):

@@ -1,8 +1,7 @@
 from ..nn.core import Layer, Variable
 from ..nn.global_graph import np
-from ..utils.activators import get_activator
 from ..nn.functional import pad_2d
-from ..nn.grad_fn import Pad2DBackward, AddBackward, NegBackward, MultiplyBackward, MatmulBackward, LogBackward, ExpBackward, SumBackward, MeanBackward, AbsBackward, PowBackward
+from ..nn.grad_fn import Pad2DBackward, NegBackward, MultiplyBackward, MatmulBackward, LogBackward, ExpBackward, SumBackward, MeanBackward, AbsBackward, PowBackward
 from typing import Tuple, Union, List
 
 
@@ -61,33 +60,6 @@ class ZeroPadding2D(Layer):
 
     def backward(self, gradients=None):
         Pad2DBackward(self.data)
-
-
-class Activation(Layer):
-    def __init__(self, act_name: str = 'relu'):
-        self.activation = get_activator(act_name)
-        super(Activation, self).__init__()
-
-    def __call__(self, inbound):
-        if isinstance(inbound, Variable):
-            output = self.activation.forward(inbound)
-            # output是一个Variable
-            return output
-        super(Activation, self).__call__(inbound)
-        return self
-
-    def compute_output_shape(self, input_shape=None):
-        return input_shape
-
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
-        if x is not None:
-            self.input_data = x
-        self.data = self.activation.forward(self.input_data)
-        self.connect_init(self.data, is_training)
-        return self.data
-
-    def backward(self, gradients=None):
-        self.activation.backward()
 
 
 class Add(Layer):

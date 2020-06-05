@@ -1,5 +1,5 @@
 from ..nn.core import Layer, Variable
-from ..utils.initializers import get_initializer
+from xshinnosuke.nn.initializers import get_initializer
 from ..nn.global_graph import np
 
 

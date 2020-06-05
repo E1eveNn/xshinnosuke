@@ -1,6 +1,6 @@
 # 写关于Node和Layer运算所需要的函数
-from ..nn.global_graph import np
-from ..utils.toolkit import col2im
+from .global_graph import np
+from .toolkit import col2im
 from functools import reduce
 
 

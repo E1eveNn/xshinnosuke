@@ -1,7 +1,7 @@
 from ..nn.core import Layer, Variable
 from ..nn.global_graph import np
 from functools import reduce
-from ..utils.initializers import get_initializer
+from ..nn.initializers import get_initializer
 from ..nn.functional import dropout2d, batchnorm_2d
 from ..nn.grad_fn import Dropout2DBackward, Batchnorm2DBackward
 

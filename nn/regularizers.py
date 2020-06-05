@@ -1,4 +1,4 @@
-from ..nn.core import Variable
+from .core import Variable
 
 
 class Regularizer:

@@ -1,4 +1,4 @@
-from ..nn.global_graph import np
+from .global_graph import np
 import copy
 
 

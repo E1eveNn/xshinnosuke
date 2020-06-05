@@ -1,12 +1,12 @@
-from .utils.objectives import get_objective
-from .utils.optimizers import get_optimizer
+from .nn.objectives import get_objective
+from .nn.optimizers import get_optimizer
 from .utils.toolkit import *
 from .nn.core import Variable, Layer
 from .nn.functional import concatenate
 from .nn.global_graph import np, topological_sort
 import time
 import pickle
-from typing import List, Tuple, Union
+from typing import Tuple
 
 
 class Module:

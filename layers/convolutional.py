@@ -1,10 +1,10 @@
-from ..utils.initializers import get_initializer
-from ..utils.activators import get_activator
+from ..nn.initializers import get_initializer
+from .activators import get_activator
 from ..nn.core import Layer, Variable
 from ..nn import global_graph as GlobalGraph
 from ..nn.functional import conv2d, max_pool2d, avg_pool2d
 from ..nn.grad_fn import Conv2DBackward, Maxpool2DBackward, Avgpool2DBackward
-from typing import List, Tuple, Union
+from typing import Tuple, Union
 
 
 class Conv2D(Layer):

@@ -1,9 +1,9 @@
-from ..nn.core import Variable
-from ..nn.grad_fn import MeanSquaredbackward, MeanAbsolutebackward, BinaryCrossEntropyBackward, SparseCrossEntropyBackward, CrossEntropyBackward
+from .core import Variable
+from .grad_fn import MeanSquaredbackward, MeanAbsolutebackward, BinaryCrossEntropyBackward, SparseCrossEntropyBackward, CrossEntropyBackward
 import copy
-from ..nn.functional import softmax
+from .functional import softmax
 from functools import reduce
-from ..nn import global_graph as GlobalGraph
+from . import global_graph as GlobalGraph
 
 
 class Objective:

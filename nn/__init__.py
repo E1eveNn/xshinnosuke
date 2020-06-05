@@ -1,7 +1,6 @@
-from .core import *
+from .core import Variable, Constant
 from .functional import *
-from .grad_fn import *
-from .global_graph import *
-
+from .initializers import *
+from .objectives import MeanSquaredError, MeanAbsoluteError, SparseCrossEntropy, CrossEntropy, BinaryCrossEntropy, get_objective
 
 name = 'xshinnosuke-nn'

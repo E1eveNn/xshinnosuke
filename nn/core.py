@@ -1,8 +1,8 @@
-from ..nn.grad_fn import *
+from .grad_fn import *
 from typing import List, Tuple, Union
 import gc
-from ..nn import global_graph as GlobalGraph
-from ..utils.toolkit import initialize_ops_grad
+from . import global_graph as GlobalGraph
+from .toolkit import initialize_ops_grad
 
 
 # 第一种数据类型Node，也就是我们基本的tensor type，每一个tensor都是Node的实例化类型

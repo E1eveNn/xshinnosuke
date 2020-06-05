@@ -1,8 +1,8 @@
 from ..nn.core import Layer, Variable
-from ..utils.activators import get_activator
-from ..utils.initializers import get_initializer
+from .activators import get_activator
+from xshinnosuke.nn.initializers import get_initializer
 from ..nn.functional import concatenate
-from ..utils.toolkit import initialize_ops_grad
+from ..nn.toolkit import initialize_ops_grad
 from ..nn.global_graph import np
 from typing import Union, List, Tuple
 
