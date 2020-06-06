@@ -38,4 +38,4 @@ def initialize_ops_grad(*ops):
     # 初始化梯度
     for op in ops:
         if op is not None and op.requires_grad:
-            op.grad = np.zeros_like(op.data)
+            op.zero_grad()

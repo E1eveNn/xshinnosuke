@@ -10,7 +10,7 @@ class Embedding(Layer):
         self.output_dim = output_dim
         self.initializer = get_initializer(embeddings_initializer)
         self.mask_zero = mask_zero
-        self.input_length = input_length
+        self.input_shape = (input_length, )
 
     def initial_params(self):
         w = Variable(self.initializer((self.input_dim, self.output_dim)), name='embedding_w')

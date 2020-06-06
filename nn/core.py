@@ -33,23 +33,28 @@ class Node:
         self.grad_fn = None
         # 存储一些必要的数据用于反向传播，类型为一个字典，通过key-value形式索引
         self.cache = {}
+        # bp后是否需要保存梯度
+        self.retain = False
+
+    def retain_grad(self):
+        self.retain = True
 
     # 该方法相当于重载对类的print, info就是print类后显示的结果
     def __repr__(self) -> str:
         # {}里填写的变量就相当于是把这个变量的值转换为字符串填在这
         if self.grad_fn:
             info = f'{self.__class__.__name__}({self.data}, requires_grad={self.requires_grad}, ' \
-                   f'grad_fn={self.grad_fn.__name__})'
+                f'grad_fn={self.grad_fn.__name__})'
         else:
             info = f'{self.__class__.__name__}({self.data}, requires_grad={self.requires_grad}, ' \
-                   f'grad_fn={self.grad_fn})'
+                f'grad_fn={self.grad_fn})'
         return info
 
     def __str__(self) -> str:
         # 同上，不在解释，在python里要重载类的print，最好是把这两个方法都重载了
         if self.grad_fn:
             info = f'{self.__class__.__name__}({self.data}, requires_grad={self.requires_grad}, ' \
-                   f'grad_fn=<{self.grad_fn.__name__}>)'
+                f'grad_fn=<{self.grad_fn.__name__}>)'
         else:
             info = f'{self.__class__.__name__}({self.data}, requires_grad={self.requires_grad})'
         return info
@@ -84,12 +89,15 @@ class Node:
 
     # 取负号
     def __neg__(self):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
         return neg(self)
 
     # 减法
     def __sub__(self, other):
-        # a - b = a + (-b)
-        return add(self, neg(other))
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
+        return sub(self, other)
 
     # 乘法
     def __mul__(self, other):
@@ -99,10 +107,12 @@ class Node:
 
     # 幂
     def __pow__(self, power: int, modulo=None):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
         outputs = Variable(in_bounds=[self], data=np.power(self.data, power), requires_grad=True)
         # 绑定反向求梯度的函数
         outputs.grad_fn = PowBackward
-        outputs.power = power
+        self.cache['power'] = power
         initialize_ops_grad(self)
         return outputs
 
@@ -114,12 +124,16 @@ class Node:
             if self.grad is None:
                 self.grad = 1.
             self.grad_fn(self)
-            if GlobalGraph.inputs is not None and GlobalGraph.outputs is not None:
+            if GlobalGraph.outputs is None:
+                GlobalGraph.outputs = self
+            if GlobalGraph.inputs is not None:
                 graph = GlobalGraph.build_graph()
+                GlobalGraph.inputs.retain_grad()
+                GlobalGraph.outputs.retain_grad()
                 for node in reversed(graph):
                     if node.grad_fn is not None:
                         node.grad_fn(node)
-                    if node == GlobalGraph.inputs or node == GlobalGraph.outputs:
+                    if node.retain:
                         continue
                     del node.cache, node.data, node.grad, node.grad_fn, node.in_bounds, node.out_bounds, node.shape, \
                         node.name, node.requires_grad
@@ -135,6 +149,9 @@ class Node:
         else:
             raise ValueError('grad can be implicitly created only for scalar outputs')
 
+    def zero_grad(self):
+        self.grad = np.zeros_like(self.data)
+
     # 把数据转换为长整型，返回一个Variable
     def long(self):
         output = Variable(data=self.data, dtype=np.int64)
@@ -146,6 +163,8 @@ class Node:
 
     # 矩阵乘
     def matmul(self, other):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
         outputs_data = np.dot(self.data, other.data)
         outputs = Variable(data=outputs_data, in_bounds=[self, other])
         outputs.grad_fn = MatmulBackward
@@ -156,18 +175,24 @@ class Node:
 
     # 转置
     def t(self):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
         outputs = Variable(data=self.data.T, in_bounds=[self])
         outputs.grad_fn = TransposeBackward
         self.out_bounds.append(outputs)
+        initialize_ops_grad(self)
         return outputs
 
     # 求和
     def sum(self, axis: int = None, keepdims: bool = False):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
         # 在哪个axis（维度）上求和
         if axis is None:
             sum_value = np.sum(self.data, keepdims=keepdims)
         else:
             sum_value = np.sum(self.data, axis=axis, keepdims=keepdims)
+        self.cache['axis'] = axis
         outputs = Variable(in_bounds=[self], data=sum_value)
         # 绑定反向求梯度的函数
         outputs.grad_fn = SumBackward
@@ -177,10 +202,14 @@ class Node:
 
     # 求均值
     def mean(self, axis: int = None, keepdims: bool = False):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
+
         if axis is None:
             mean_value = np.mean(self.data, keepdims=keepdims)
         else:
             mean_value = np.mean(self.data, axis=axis, keepdims=keepdims)
+        self.cache['axis'] = axis
         outputs = Variable(in_bounds=[self], data=mean_value)
         # 绑定反向求梯度的函数
         outputs.grad_fn = MeanBackward
@@ -190,6 +219,9 @@ class Node:
 
     # 求绝对值
     def abs(self):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
+
         outputs = Variable(in_bounds=[self], data=np.abs(self.data))
         # 绑定反向求梯度的函数
         outputs.grad_fn = AbsBackward
@@ -199,6 +231,9 @@ class Node:
 
     # reshape，传入的参数应该是一个list或者tuple
     def view(self, *shapes):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
+
         outputs = Variable(in_bounds=[self], data=self.data.reshape(*shapes))
         # 绑定反向求梯度的函数
         outputs.grad_fn = AbsBackward
@@ -208,6 +243,9 @@ class Node:
 
     # 求log
     def log(self, base: int = 2):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
+
         # 这里可能需要重载一下, base可选为2， 10和'e'
         if base == 2:
             ret_value = np.log2(self.data)
@@ -226,6 +264,9 @@ class Node:
 
     # 求exp
     def exp(self):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
+
         outputs = Variable(in_bounds=[self], data=np.exp(self.data))
         # 绑定反向求梯度的函数
         outputs.grad_fn = ExpBackward
@@ -235,7 +276,8 @@ class Node:
 
 
 class Variable(Node):
-    def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None, out_bounds: Union[List, Tuple] = None,
+    def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
+                 out_bounds: Union[List, Tuple] = None,
                  name: str = None, requires_grad: bool = True, dtype=np.float64):
         # Variable初始化时必须提供data值，data值可能传入的是一个int或者float，我们需要把它包装成numpy矩阵（cpp中就包装成我们选的矩阵库类型）
         data = np.asarray(data, dtype=dtype)  # 数据类型用float64吧，float32也行
@@ -257,7 +299,8 @@ class Variable(Node):
 
 
 class Constant(Node):
-    def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None, out_bounds: Union[List, Tuple] = None,
+    def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
+                 out_bounds: Union[List, Tuple] = None,
                  name: str = None):
         # Constant初始化时必须提供data值，并且一旦初始化就不可修改，Constant因为值不需要修改，也就没必要计算梯度，默认require_grads为False
         # !!!!!!!!!!!!!!!!注意Constant里的这个data要是const类型的，总之就是Constant的data一旦初始化后没办法被修改
@@ -361,9 +404,23 @@ def add(*ops: Variable) -> Variable:
     for op in ops:
         data += op.data
     outputs = Variable(in_bounds=[*ops], data=data)
-    initialize_ops_grad(ops)
+    initialize_ops_grad(*ops)
     # 绑定反向求梯度的函数
     outputs.grad_fn = AddBackward
+    for op in ops:
+        op.out_bounds.append(outputs)
+    return outputs
+
+
+# 减法
+def sub(*ops: Variable) -> Variable:
+    outputs = ops[0].data
+    for op in ops[1:]:
+        outputs = outputs - op.data
+    outputs = Variable(in_bounds=[*ops], data=outputs)
+    initialize_ops_grad(*ops)
+    # 绑定反向求梯度的函数
+    outputs.grad_fn = SubBackward
     for op in ops:
         op.out_bounds.append(outputs)
     return outputs
@@ -385,7 +442,7 @@ def mul(x: Variable, y: Variable) -> Variable:
     # 列举所有做点乘的情况, 1.两个标量， 2.两个矩阵的shape一样。
     # 有一种特殊情况，两个矩阵的shape虽然不一样，但还是可以通过broadcast机制做点乘，比如(1, 3) * (3, 3) = (3, 3)，但是也可以理解为矩阵乘 = (1, 3)，这种情况下，我们默认为矩阵乘。
 
-    if len(x.shape) == 1 and len(y.shape) == 1 or x.shape == y.shape:
+    if len(x.shape) == 1 and len(y.shape) == 1 or x.shape[-1] != y.shape[0]:
         # 点乘
         outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
         outputs.grad_fn = MultiplyBackward

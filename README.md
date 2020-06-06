@@ -24,9 +24,7 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 `###################################### \^^xshinnosuke documents^^/ ######################################`
 
-
-<div align=center><a href=https://github.com/eLeVeNnN/shinnosuke/blob/master/docs/imgs/Shinnosuke-API.ipynb>Jupyter Notebook</a></div>
-<div align=center><a href=https://github.com/eLeVeNnN/shinnosuke/blob/master/docs/imgs/Shinnosuke-API.md>Markdown</a></div>
+<div align=center><a href=https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/XShinnosuke-API.ipynb>Jupyter Notebook</a></div>
 
 ------
 
@@ -36,8 +34,12 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 **Here are two styles of xshinnosuke written resnet18~**
 
-1. [Keras style]()
-2. [Pytorch style]()
+1. [Pytorch style](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_dynamic_graph.ipynb)
+2. [Keras style](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
+
+
+
+Belows are simple demo of these style.
 
 ### 1. Keras style
 
@@ -198,18 +200,25 @@ for epoch in range(EPOCH):
 
 Building an image classification model, a question answering system or any other model is just as convenient and fast~
 
+
+
+## Autograd
+
+XShinnosuke override the basic operators such as: `+, -, *, \, **, etc` and supports some common functions: `matmul(),mean(), sum(). log(), view(), etc `. here is an example of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb).
+
 ## Installation
 
-Before installing Shinnosuke, please install the following **dependencies**:
+Before installing XShinnosuke, please install the following **dependencies**:
 
-- Numpy = 1.15.0 (recommend)
-- matplotlib = 3.0.3 (recommend)
+- Cupy = 6.0.0 (recommend)
 
-Then you can install Shinnosuke by using pip:
+```markdown
+notice that cupy requires **Microsoft Visual C++ 14.0**
+```
 
-`$ pip install shinnosuke`
+Then you can install XShinnosuke by using pip:
 
-**Installation from Github source will be supported in the future.**
+`$ pip install xshinnosuke`
 
 ------
 
@@ -236,12 +245,18 @@ Then you can install Shinnosuke by using pip:
 - SimpleRNN
 - LSTM
 - Embedding
-- GRU (waiting for implemented)
 - ZeroPadding2D
 - Add
-- Minus
 - Multiply
 - Matmul
+
++ Log
++ Negative
++ Exp
++ Sum
++ Abs
++ Mean
++ Pow
 
 
 
@@ -254,7 +269,7 @@ Then you can install Shinnosuke by using pip:
 
 ### Optimizers
 
-- StochasticGradientDescent
+- SGD
 - Momentum
 - RMSprop
 - AdaGrad
@@ -268,8 +283,8 @@ Waiting for implemented more
 - MeanSquaredError
 - MeanAbsoluteError
 - BinaryCrossEntropy
-- SparseCategoricalCrossEntropy
-- CategoricalCrossEntropy 
+- SparseCrossEntropy
+- CrossEntropy 
 
 ### Activations
 
@@ -297,11 +312,9 @@ Waiting for implemented more
 
 waiting for implement.
 
-### Utils
+### Preprocess
 
-- get_batches (generate mini-batch)
 - to_categorical (convert inputs to one-hot vector/matrix)
-- concatenate (concatenate Nodes that have the same shape in specify axis)
 - pad_sequences (pad sequences to the same length)
 
 ## Contact

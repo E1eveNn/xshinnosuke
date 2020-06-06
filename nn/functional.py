@@ -45,13 +45,12 @@ def softmax(inputs: Variable):
 
 
 def dense(inputs: Variable, weight: Variable, bias: Variable = None):
-    outputs = inputs.matmul(weight)
+    outputs = inputs.data.dot(weight.data)
     if bias is not None:
-        outputs += bias
-    else:
-        # 这里加入None是为了数组大小能对应
-        outputs.in_bounds.append(None)
+        outputs += bias.data
+    outputs = Variable(data=outputs, in_bounds=[inputs, weight, bias])
     outputs.grad_fn = DenseBackward
+    inputs.out_bounds.append(outputs)
     initialize_ops_grad(inputs, weight, bias)
     return outputs
 

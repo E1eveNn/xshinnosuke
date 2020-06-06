@@ -7,7 +7,11 @@ from functools import reduce
 def AddBackward(outputs):
     for in_bound in outputs.in_bounds:
         if in_bound.requires_grad:
-            in_bound.grad += outputs.grad
+            not_equal_axis = [k for k, v in enumerate(outputs.shape) if v != in_bound.shape[k]]
+            if not_equal_axis:
+                in_bound.grad += np.sum(outputs.grad, axis=not_equal_axis[0])
+            else:
+                in_bound.grad += outputs.grad
 
 
 def IAddBackward(outputs):
@@ -16,6 +20,15 @@ def IAddBackward(outputs):
         inputs.grad += outputs.grad
     outputs.grad_fn = outputs.cache['grad_fn'].pop()
     outputs.grad_fn(outputs)
+
+
+def SubBackward(outputs):
+    for i, in_bound in enumerate(outputs.in_bounds):
+        if in_bound.requires_grad:
+            if i == 0:
+                in_bound.grad += outputs.grad
+            else:
+                in_bound.grad -= outputs.grad
 
 
 def NegBackward(outputs):
@@ -48,11 +61,15 @@ def MultiplyBackward(outputs):
     right = 1
     for i in reversed(range(length)):
         product_except_self_list[i] *= right
-        right *= outputs.in_bounds[i].data
+        right = right * outputs.in_bounds[i].data
 
     for i, in_bound in enumerate(outputs.in_bounds):
         if in_bound.requires_grad:
-            in_bound.grad += outputs.grad * product_except_self_list[i]
+            not_equal_axis = [k for k, v in enumerate(outputs.shape) if v != in_bound.shape[k]]
+            if not_equal_axis:
+                in_bound.grad += np.sum(outputs.grad * product_except_self_list[i], axis=not_equal_axis[0])
+            else:
+                in_bound.grad += outputs.grad * product_except_self_list[i]
 
 
 def SumBackward(outputs):
@@ -64,8 +81,12 @@ def SumBackward(outputs):
 def MeanBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
-        mean_nums = inputs.shape / outputs.shape
-        inputs.grad += np.ones_like(inputs.data) * outputs.grad / mean_nums
+        mean_nums = inputs.data.size / outputs.data.size
+        if outputs.data.ndim < inputs.data.ndim:
+            axis = inputs.cache['axis']
+            if axis is not None:
+                grad = np.expand_dims(outputs.grad, axis)
+        inputs.grad += np.ones_like(inputs.data) * grad / mean_nums
 
 
 def AbsBackward(outputs):
@@ -98,7 +119,7 @@ def ExpBackward(outputs):
 def PowBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
-        n_times = inputs.power
+        n_times = inputs.cache['power']
         if n_times < 1:
             inputs.grad += n_times * outputs.grad / np.power(inputs.data, 1 - n_times)
         else:
@@ -163,7 +184,7 @@ def Conv2DBackward(outputs):
     dcol = grad_reshaped.T.dot(weight.data.reshape(out_channels, -1))
 
     if inputs.requires_grad:
-        inputs.grad += col2im(inputs.shape, outputs.cache['pad_size'], kernel_h, kernel_w,  outputs.cache['stride'],
+        inputs.grad += col2im(inputs.shape, outputs.cache['pad_size'], kernel_h, kernel_w, outputs.cache['stride'],
                               dcol)
 
 
@@ -180,7 +201,8 @@ def Maxpool2DBackward(outputs):
         dx_reshaped /= np.sum(mask, axis=(3, 5), keepdims=True)
         grad = dx_reshaped.reshape(inputs.data.shape)
         if outputs.cache['pad_size']:
-            grad = grad[:, :, outputs.cache['pad_size']: -outputs.cache['pad_size'], outputs.cache['pad_size']: -outputs.cache['pad_size']]
+            grad = grad[:, :, outputs.cache['pad_size']: -outputs.cache['pad_size'],
+                   outputs.cache['pad_size']: -outputs.cache['pad_size']]
     else:
         grad = outputs.grad.transpose(0, 2, 3, 1)
         dmax = np.zeros((grad.size, outputs.cache['kernel_size'] * outputs.cache['kernel_size']))
@@ -189,7 +211,7 @@ def Maxpool2DBackward(outputs):
 
         dcol = dmax.reshape(reduce(lambda x, y: x * y, dmax.shape[:3]), -1)
         grad = col2im(inputs.shape, outputs.cache['pad_size'], outputs.cache['kernel_size'],
-                         outputs.cache['kernel_size'], outputs.cache['stride'], dcol)
+                      outputs.cache['kernel_size'], outputs.cache['stride'], dcol)
 
     if inputs.requires_grad:
         inputs.grad += grad
@@ -198,11 +220,12 @@ def Maxpool2DBackward(outputs):
 def Avgpool2DBackward(outputs):
     inputs, = outputs.in_bounds
     grad = outputs.grad.transpose(0, 2, 3, 1)
-    dmean = np.repeat(grad.flatten(), outputs.cache['pool_argmean'].size) / (outputs.cache['kernel_size'] * outputs.cache['kernel_size'])
+    dmean = np.repeat(grad.flatten(), outputs.cache['pool_argmean'].size) / (
+                outputs.cache['kernel_size'] * outputs.cache['kernel_size'])
     dmean = dmean.reshape(grad.shape + (outputs.cache['kernel_size'] * outputs.cache['kernel_size'],))
     dcol = dmean.reshape(reduce(lambda x, y: x * y, dmean.shape[:3]), -1)
     grad = col2im(inputs.shape, outputs.cache['pad_size'], outputs.cache['kernel_size'],
-                         outputs.cache['kernel_size'], outputs.cache['stride'], dcol)
+                  outputs.cache['kernel_size'], outputs.cache['stride'], dcol)
 
     if inputs.requires_grad:
         inputs.grad += grad

@@ -34,7 +34,7 @@ class Module:
             for n in vertex.out_bounds:
                 if n not in seen:
                     for v in n.in_bounds:
-                        if v is not None and v.requires_grad and v.name == 'variable'and v not in self.trainable_variables:
+                        if v is not None and v.requires_grad and v.name == 'variable' and v not in self.trainable_variables:
                             self.trainable_variables.append(v)
 
                     queue.append(n)
@@ -192,6 +192,53 @@ class Module:
         self.optimizer = optimizer
         self.loss = loss
 
+    def __str__(self):
+        bar_nums = 120
+        print('*' * bar_nums)
+
+        print('Layer(type)'.ljust(40), 'Output Shape'.ljust(40), 'Param'.ljust(12), 'Connected to'.ljust(15))
+        print('#' * bar_nums)
+        total_params = 0
+        name_dict = {}
+        for layer in self.graph:
+            if layer.name is None:
+                if layer.__class__.__name__ not in name_dict.keys():
+                    name_dict[layer.__class__.__name__] = -1
+                name_dict[layer.__class__.__name__] += 1
+                layer.name = layer.__class__.__name__.lower() + str(name_dict[layer.__class__.__name__])
+
+            layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
+
+            params = layer.params_count()
+            total_params += params
+            first = True
+            if layer.in_bounds:
+                for prev_layer in layer.in_bounds:
+                    if prev_layer.name is not None:
+                        connected = prev_layer.name
+                    else:
+                        connected = prev_layer.__class__.__name__
+                    if first:
+                        print(layer_name.ljust(40), str((None,) + layer.shape).ljust(40), str(params).ljust(12),
+                              connected.ljust(15))
+                        first = False
+                    else:
+                        print(''.ljust(40), ''.ljust(40), ''.ljust(12), connected.ljust(15))
+            else:
+                connected = '\n'
+                print(layer_name.ljust(40), str((None,) + layer.shape).ljust(40), str(params).ljust(12),
+                      connected.ljust(15))
+            print('-' * bar_nums)
+
+        print('*' * bar_nums)
+        trainable_params = 0
+        for v in self.trainable_variables:
+            trainable_params += v.data.size
+        params_details = 'Total params: %d\n' % total_params
+        params_details += 'Trainable params: %d\n' % trainable_params
+        params_details += 'Non-trainable params: %d\n' % (total_params - trainable_params)
+        return params_details
+
 
 class Sequential(Module):
     def __init__(self, *layers: Layer):
@@ -239,49 +286,6 @@ class Sequential(Module):
         self.optimizer = optimizer
         self.loss = loss
 
-    def __str__(self):
-        bar_nums = 120
-        print('*' * bar_nums)
-
-        print('Layer(type)'.ljust(40), 'Output Shape'.ljust(40), 'Param'.ljust(12), 'Connected to'.ljust(15))
-        print('#' * bar_nums)
-        total_params = 0
-        for layer in self.graph:
-            if layer.name is not None:
-                layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
-            else:
-                layer_name = str(layer.__class__.__name__)
-
-            params = layer.params_count()
-            total_params += params
-            first = True
-            if layer.in_bounds:
-                for prev_layer in layer.in_bounds:
-                    if prev_layer.name is not None:
-                        connected = prev_layer.name
-                    else:
-                        connected = prev_layer.__class__.__name__
-                    if first:
-                        print(layer_name.ljust(40), str((None, ) + layer.shape).ljust(40), str(params).ljust(12),
-                              connected.ljust(15))
-                        first = False
-                    else:
-                        print(''.ljust(40), ''.ljust(40), ''.ljust(12), connected.ljust(15))
-            else:
-                connected = '\n'
-                print(layer_name.ljust(40), str((None, ) + layer.shape).ljust(40), str(params).ljust(12),
-                      connected.ljust(15))
-            print('-' * bar_nums)
-
-        print('*' * bar_nums)
-        trainable_params = 0
-        for v in self.trainable_variables:
-            trainable_params += v.data.size
-        params_details = 'Total params: %d\n' % total_params
-        params_details += 'Trainable params: %d\n' % trainable_params
-        params_details += 'Non-trainable params: %d\n' % (total_params - trainable_params)
-        return params_details
-
 
 class Model(Module):
     def __init__(self, inputs=None, outputs=None):
@@ -307,46 +311,3 @@ class Model(Module):
         for layer in self.graph:
             outputs = layer.forward(is_training=self.is_training)
         return outputs
-
-    def __str__(self):
-        bar_nums = 120
-        print('*' * bar_nums)
-
-        print('Layer(type)'.ljust(40), 'Output Shape'.ljust(40), 'Param'.ljust(12), 'Connected to'.ljust(15))
-        print('#' * bar_nums)
-        total_params = 0
-        for layer in self.graph:
-            if layer.name is not None:
-                layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
-            else:
-                layer_name = str(layer.__class__.__name__)
-
-            params = layer.params_count()
-            total_params += params
-            first = True
-            if layer.in_bounds:
-                for prev_layer in layer.in_bounds:
-                    if prev_layer.name is not None:
-                        connected = prev_layer.name
-                    else:
-                        connected = prev_layer.__class__.__name__
-                    if first:
-                        print(layer_name.ljust(40), str((None, ) + layer.shape).ljust(40), str(params).ljust(12),
-                              connected.ljust(15))
-                        first = False
-                    else:
-                        print(''.ljust(40), ''.ljust(40), ''.ljust(12), connected.ljust(15))
-            else:
-                connected = '\n'
-                print(layer_name.ljust(40), str((None, ) + layer.shape).ljust(40), str(params).ljust(12),
-                      connected.ljust(15))
-            print('-' * bar_nums)
-
-        print('*' * bar_nums)
-        trainable_params = 0
-        for v in self.trainable_variables:
-            trainable_params += v.data.size
-        params_details = 'Total params: %d\n' % total_params
-        params_details += 'Trainable params: %d\n' % trainable_params
-        params_details += 'Non-trainable params: %d\n' % (total_params - trainable_params)
-        return params_details
