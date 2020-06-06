@@ -120,8 +120,8 @@ For **Functional** model:
 Combine your layers by functional API:
 
 ```python
-from shinnosuke.models import Model
-from shinnosuke.layers import Input, Conv2D,MaxPooling2D, Activation, BatchNormalization, Flatten, Dense
+from xshinnosuke.models import Model
+from xshinnosuke.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
 
 X_input = Input(input_shape = (1, 28, 28))   # (batch_size, channels, height, width)
 X = Conv2D(8, (2, 2), activation='relu')(X_input)
@@ -174,7 +174,7 @@ import cupy as np
 net = MyNet()
 # random generate data
 X = np.random.randn(100, 3, 12, 12)
-Y = np.random.randint(0, 10, (100,))
+Y = np.random.randint(0, 10, (100, ))
 # generate training dataloader
 train_dataset = DataSet(X, Y)
 train_loader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
@@ -204,7 +204,7 @@ Building an image classification model, a question answering system or any other
 
 ## Autograd
 
-XShinnosuke override the basic operators such as: `+, -, *, \, **, etc` and supports some common functions: `matmul(),mean(), sum(). log(), view(), etc `. here is an example of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb).
+XShinnosuke override the basic operators such as: `+, -, *, \, **, etc` and supports some common functions: `matmul(),mean(), sum(). log(), view(), etc `. Here is an example of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb).
 
 ## Installation
 
