@@ -192,6 +192,53 @@ class Module:
         self.optimizer = optimizer
         self.loss = loss
 
+
+class Sequential(Module):
+    def __init__(self, *layers: Layer):
+        super().__init__()
+        self.graph = [] if layers is None else list(layers)
+
+    def add(self, layer):
+        self.graph.append(layer)
+
+    def compile(self, optimizer, loss):
+        assert self.graph
+        next_layer = None
+        for layer in self.graph:
+            layer.connect(next_layer)
+            layer.initial_params()
+            next_layer = layer
+            for v in layer.variables:
+                if v is not None and v.requires_grad and v not in self.trainable_variables:
+                    self.trainable_variables.append(v)
+        self.loss = get_objective(loss)
+        self.optimizer = get_optimizer(optimizer)
+        self.optimizer.trainable_variables = self.trainable_variables
+
+    def forward(self, x, *args):
+        for layer in self.graph:
+            if hasattr(layer, 'variables') and len(layer.variables) == 0:
+                layer.initial_params(x.shape[1:])
+            x = layer.forward(x, self.is_training)
+        return x
+
+    def pop(self, index=-1):
+        layer = self.graph.pop(index)
+        del layer
+        print('success delete %s layer' % layer.__class__.__name__)
+
+    def save(self, save_path):
+        with open(save_path + '.pkl', 'wb') as f:
+            pickle.dump([self.graph, self.optimizer, self.loss], f)
+
+    def load(self, model_path):
+        with open(model_path + '.pkl', 'rb') as f:
+            layers, optimizer, loss = pickle.load(f)
+
+        self.graph = layers
+        self.optimizer = optimizer
+        self.loss = loss
+
     def __str__(self):
         bar_nums = 120
         print('*' * bar_nums)
@@ -236,53 +283,6 @@ class Module:
         return params_details
 
 
-class Sequential(Module):
-    def __init__(self, *layers: Layer):
-        super().__init__()
-        self.graph = [] if layers is None else layers
-
-    def add(self, layer):
-        self.graph.append(layer)
-
-    def compile(self, optimizer, loss):
-        assert self.graph
-        next_layer = None
-        for layer in self.graph:
-            layer.connect(next_layer)
-            layer.initial_params()
-            next_layer = layer
-            for v in layer.variables:
-                if v is not None and v.requires_grad and v not in self.trainable_variables:
-                    self.trainable_variables.append(v)
-        self.loss = get_objective(loss)
-        self.optimizer = get_optimizer(optimizer)
-        self.optimizer.trainable_variables = self.trainable_variables
-
-    def forward(self, x, *args):
-        for layer in self.graph:
-            if hasattr(layer, 'variables') and len(layer.variables) == 0:
-                layer.initial_params(x.shape[1:])
-            x = layer.forward(x, self.is_training)
-        return x
-
-    def pop(self, index=-1):
-        layer = self.graph.pop(index)
-        del layer
-        print('success delete %s layer' % layer.__class__.__name__)
-
-    def save(self, save_path):
-        with open(save_path + '.pkl', 'wb') as f:
-            pickle.dump([self.graph, self.optimizer, self.loss], f)
-
-    def load(self, model_path):
-        with open(model_path + '.pkl', 'rb') as f:
-            layers, optimizer, loss = pickle.load(f)
-
-        self.graph = layers
-        self.optimizer = optimizer
-        self.loss = loss
-
-
 class Model(Module):
     def __init__(self, inputs=None, outputs=None):
         super().__init__()
@@ -308,3 +308,45 @@ class Model(Module):
             outputs = layer.forward(is_training=self.is_training)
         return outputs
 
+    def __str__(self):
+        bar_nums = 120
+        print('*' * bar_nums)
+
+        print('Layer(type)'.ljust(40), 'Output Shape'.ljust(40), 'Param'.ljust(12), 'Connected to'.ljust(15))
+        print('#' * bar_nums)
+        total_params = 0
+        for layer in self.graph:
+            if layer.name is not None:
+                layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
+            else:
+                layer_name = str(layer.__class__.__name__)
+
+            params = layer.params_count()
+            total_params += params
+            first = True
+            if layer.in_bounds:
+                for prev_layer in layer.in_bounds:
+                    if prev_layer.name is not None:
+                        connected = prev_layer.name
+                    else:
+                        connected = prev_layer.__class__.__name__
+                    if first:
+                        print(layer_name.ljust(40), str((None, ) + layer.shape).ljust(40), str(params).ljust(12),
+                              connected.ljust(15))
+                        first = False
+                    else:
+                        print(''.ljust(40), ''.ljust(40), ''.ljust(12), connected.ljust(15))
+            else:
+                connected = '\n'
+                print(layer_name.ljust(40), str((None, ) + layer.shape).ljust(40), str(params).ljust(12),
+                      connected.ljust(15))
+            print('-' * bar_nums)
+
+        print('*' * bar_nums)
+        trainable_params = 0
+        for v in self.trainable_variables:
+            trainable_params += v.data.size
+        params_details = 'Total params: %d\n' % total_params
+        params_details += 'Trainable params: %d\n' % trainable_params
+        params_details += 'Non-trainable params: %d\n' % (total_params - trainable_params)
+        return params_details

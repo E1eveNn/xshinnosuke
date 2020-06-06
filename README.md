@@ -14,15 +14,15 @@ Here are some features of Shinnosuke:
 
 1. Based on **Cupy**(Gpu version of **Numpy**)  and **native** to Python.  
 2. **Without** any other **3rd-party** deep learning library.
-3. **Keras and Pytorch style API**, easy to get start.
+3. **Keras and Pytorch style API**, easy to start.
 4. Support commonly used layers such as: *Dense, Conv2D, MaxPooling2D, LSTM, SimpleRNN, etc*, and commonly used function: *conv2d, max_pool2d, relu, etc*.
-5. **Sequential** model (for most  sequence network combinations ) and **Functional** model (for resnet, etc) are implemented.
+5. **Sequential** model (for most  sequence network combinations ) and **Functional** model (for resnet, etc) are implemented, meanwhile, XShinnosuke also supports for design your own network by **Module**.
 6. Training and inference supports for both **dynamic graph** and **static graph**.
 7. **Autograd** is supported .
 
-Shinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
+XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
-`###################################### \^^shinnosuke documents^^/ ######################################`
+`###################################### \^^xshinnosuke documents^^/ ######################################`
 
 
 <div align=center><a href=https://github.com/eLeVeNnN/shinnosuke/blob/master/docs/imgs/Shinnosuke-API.ipynb>Jupyter Notebook</a></div>
@@ -34,11 +34,16 @@ Shinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 ## Getting started
 
-### 1. keras style
+**Here are two styles of xshinnosuke written resnet18~**
 
-The core networks of XShinnosuke is a model, which provide a way to combine layers. There are two model types: `Sequential` (a linear stack of layers) and `Functional` (build  a graph for layers).
+1. [Keras style]()
+2. [Pytorch style]()
 
-Here is a example of `Sequential` model:
+### 1. Keras style
+
+The core networks of XShinnosuke is a model, which provide a way to combine layers. There are two model types: **Sequential** (a linear stack of layers) and **Functional** (build  a graph for layers).
+
+Here is a example of **Sequential** model:
 
 ```python
 from xshinnosuke.models import Sequential
@@ -59,188 +64,139 @@ Once you have constructed your model, you should configure it with `.compile()` 
 
 ```python
 model.compile(loss='sparse_crossentropy', optimizer='sgd')
+print(model)
 ```
 
-If your labels are one-hot encoded vectors/matrix, you shall specify loss as  *sparse_crossentropy*, otherwise use *crossentropy* instead. (While in **Keras** *categorical_crossentropy* supports for one-hot encoded labels).
+If your labels are `one-hot` encoded vectors/matrix, you shall specify loss as  *sparse_crossentropy*, otherwise use *crossentropy* instead. (While in **Keras** *categorical_crossentropy* supports for one-hot encoded labels).
 
 Use `print(model)` to see details of model:
 
 ```python
-***************************************************************************
-Layer(type)          Output Shape         Param        Connected to   
-###########################################################################
-dense0 (Dense)                (None, 500)          392500       
+************************************************************************************************************************
+Layer(type)                              Output Shape                             Param        Connected to   
+########################################################################################################################
+Dense                                    (None, 500)                              392500       
               
----------------------------------------------------------------------------
-dense1 (Dense)              (None, 10)           5010         Dense          
----------------------------------------------------------------------------
-***************************************************************************
+------------------------------------------------------------------------------------------------------------------------
+Dense                                    (None, 10)                               5010         Dense          
+------------------------------------------------------------------------------------------------------------------------
+************************************************************************************************************************
 Total params: 397510
 Trainable params: 397510
 Non-trainable params: 0
 ```
 
-Having finished `compile`, you can start training your data in batches:
+Start training your network by `fit()`:
 
 ```python
-#trainX and trainy are Numpy arrays
-m.fit(trainX, trainy, batch_size=128, epochs=5)
+# trainX and trainy are Cupy ndarray
+model.fit(trainX, trainy, batch_size=128, epochs=5)
 ```
 
 Once completing training your model, you can save or load your model by `save()` / `load()`, respectively.
 ```python
-m.save(save_path)
-m.load(model_path)
+model.save(save_path)
+model.load(model_path)
 ```
 
 
-Evaluate your model performance by `.evaluate()`:
+Evaluate your model performance by `evaluate()`:
 
 ```python
-acc, loss = m.evaluate(testX, testy, batch_size=128)
+# testX and testy are Cupy ndarray
+acc, loss = model.evaluate(testX, testy, batch_size=128)
 ```
 
-Or obtain predictions on new data:
+Inference through `predict()`:
 
 ```python
-y_hat = m.predict(x_test)
+pred = model.predict(testX)
 ```
 
+For **Functional** model:
 
-
-For `Functional` model, first instantiate an `Input` layer:
-
-```python
-from shinnosuke.layers import Input
-
-X_input = Input(shape = (None, 1, 28, 28))   #(batch_size,channels,height,width)
-```
-
-You need to specify the input shape, notice that for Convolutional networks,data's channels must be in the `axis 1` instead of `-1`, and you should state batch_size as None which is unnecessary in Keras.
-
-Then Combine your layers by functional API:
+Combine your layers by functional API:
 
 ```python
 from shinnosuke.models import Model
-from shinnosuke.layers import Conv2D,MaxPooling2D
-from shinnosuke.layers import Activation
-from shinnosuke.layers import BatchNormalization
-from shinnosuke.layers import Flatten,Dense
+from shinnosuke.layers import Input, Conv2D,MaxPooling2D, Activation, BatchNormalization, Flatten, Dense
 
-X = Conv2D(8, (2, 2), padding = 'VALID', initializer = 'normal', activation = 'relu')(X_input)
+X_input = Input(input_shape = (1, 28, 28))   # (batch_size, channels, height, width)
+X = Conv2D(8, (2, 2), activation='relu')(X_input)
 X = MaxPooling2D((2, 2))(X)
 X = Flatten()(X)
-X = Dense(10, initializer = 'normal', activation = 'softmax')(X)
-model = Model(inputs = X_input, outputs = X)  
-model.compile(optimizer = 'sgd', loss = 'sparse_categorical_cross_entropy')
-model.fit(trainX, trainy, batch_size = 256, epochs = 80, validation_ratio = 0.)
+X = Dense(10)(X)
+model = Model(inputs=X_input, outputs=X)  
+model.compile(optimizer='sgd', loss='sparse_cross_entropy')
+model.fit(trainX, trainy, batch_size=256, epochs=80)
 ```
 
-Pass inputs and outputs layer to `Model()`, and then compile and fit model like `Sequential`model.
+Pass inputs and outputs layer to `Model()`, and then compile and fit model as `Sequential`model.
+
+### 2. Pytorch style
+
+The core method to design your network in pytorch style is by **Module**.
+
+First design your own network, make sure your network is inherited from **Module** and *override* the `__init__()` and `forward()` function:
+
+```python
+from xshinnosuke.models import Module
+from xshinnosuke.layers import Conv2D, ReLU, Flatten, Dense
+import xshinnosuke.nn.functional as F
+
+class MyNet(Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = Conv2D(8, 3)
+        self.relu = ReLU(inplace=True)
+        self.flat = Flatten()
+        self.fc = Dense(10)
+
+    def forward(self, x, *args):
+        x = self.conv1(x)
+        x = self.relu(x)
+        x = F.max_pool2d(x, 2)
+        x = self.flat(x)
+        x = self.fc(x)
+        return x
+```
+
+Then manually set the training/ testing flow:
+
+```python
+from xshinnosuke.nn.optimizers import SGD
+from xshinnosuke.utils import DataSet, DataLoader
+from xshinnosuke.nn import Variable, CrossEntropy
+import cupy as np
+
+net = MyNet()
+# random generate data
+X = np.random.randn(100, 3, 12, 12)
+Y = np.random.randint(0, 10, (100,))
+# generate training dataloader
+train_dataset = DataSet(X, Y)
+train_loader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
+# specify optimizer and critetion
+optimizer = SGD(net.parameters())
+critetion = CrossEntropy()
+# start training
+EPOCH = 5
+for epoch in range(EPOCH):
+    for x, y in train_loader:
+        x = Variable(x)
+        y = Variable(y)
+        optimizer.zero_grad()
+        out = net(x)
+        loss = critetion(out, y)
+        loss.backward()
+        optimizer.step()
+        train_acc, train_loss = critetion.metric(out, y)
+        print(f'epoch -> {epoch}, train_acc: {train_acc}, train_loss: {train_loss}')
+```
 
 
 
 Building an image classification model, a question answering system or any other model is just as convenient and fast~
-
-In the [Examples folder](https://github.com/eLeVeNnN/shinnosuke/Examples/) of this repository, you can find more advanced models.
-
-------
-
-## Both dynamic and static graph features
-
-As you will see soon in below, Shinnosuke has two basic classes - Layer and Node. For Layer, operations between layers can be described like this (here gives an example of '+' ):
-
-```py
-from shinnosuke.layers import Input,Add
-from shinnosuke.layers import Dense
-
-X = Input(shape = (3, 5))
-X_shortcut = X
-X = Dense(5)(X)  #Dense will output a (3,5) tensor
-X = Add()([X_shortcut, X])
-```
-
-Meanwhile Shinnosuke will construct a graph as below:
-
-<div align=center>
-	<img src="https://github.com/eLeVeNnN/shinnosuke/blob/master/docs/imgs/layer_graph.jpg" width="300px",height="200px">
-</div>
-
-
-
-
-
- While Node Operations have both dynamic graph and static graph features:
-
-```python
-from shinnosuke.layers.Base import Variable
-
-x = Variable(3)
-y = Variable(5)
-z = x + y  
-print(z.get_value())
-```
-
-You suppose get value 8, at same time shinnosuke construct a graph as below:
-
-<div align=center>
-	<img src="https://github.com/eLeVeNnN/shinnosuke/blob/master/docs/imgs/node_graph.jpg" width="300px",height="200px">
-</div>
-
-
-
-## Autograd
-
-What is autograd? In a word, It means automatically calculate the network's gradients without any prepared backward codes for users, Shinnosuke's autograd supports for several operators, such as +, -, *, /, etc... Here gives an example:
-
-For a simple fully connected neural network, you can use `Dense()` to construct it:
-
-```python
-from shinnosuke.models import Sequential
-from shinnosuke.layers import Dense
-import numpy as np
-
-#announce a Dense layer
-fullyconnected = Dense(4, n_in = 5)
-m = Sequential()
-m.add(fullyconnected)
-m.compile(optimizer = 'sgd', loss = 'mse')  #don't mean to train it, use compile to initialize parameters
-#initialize inputs
-np.random.seed(0)
-X = np.random.rand(3, 5)
-#feed X as fullyconnected's inputs
-fullyconnected.feed(X, 'inputs')
-#forward
-fullyconnected.forward()
-out1 = fullyconnected.get_value()
-print(out1.get_value())
-#feed gradient to fullyconnected
-fullyconnected.feed(np.ones_like(out1), 'grads')
-#backward
-fullyconnected.backward()
-W, b = fullyconnected.variables
-print(W.grads)
-```
-
-We can also construct the same layer by using following codes:
-
-```python
-from shinnosuke.layers import Variable
-
-a = Variable(X) # the same as X in previous fullyconnected
-c = Variable(W.get_value())  # the same value as W in previous fullyconnected
-d = Variable(b.get_value())  # the same value as b in previous fullyconnected
-out2 = a @ c + d   # @ represents for matmul
-print(out2.get_value())
-out2.grads = np.ones_like(out2.get_value())   #specify gradients
-# by using grad(),shinnosuke will automatically calculate the gradient from out2 to c
-c.grad()
-print(c.grads)
-```
-
-Guess what? out1 has the same value of out2, and so did W and c's grads. This is the magic autograd of shinnosuke. **By using this feature, users can implement other networks as wishes without writing any backward codes.**
-
-See autograd example in [Here!](https://github.com/eLeVeNnN/shinnosuke-gpu/blob/master/Examples/autograd.ipynb)
 
 ## Installation
 
