@@ -12,6 +12,12 @@ def topological_sort(inputs, outputs):
     Returns a list of sorted nodes.
     """
     name_dict = dict()
+    simple_name_dict = {
+        'BatchNormalization': 'bn',
+        'LayerNormalization': 'ln',
+        'GroupNormalization': 'gn'
+    }
+
     G = {}
     graph = []
     outputs = list([outputs])
@@ -37,7 +43,10 @@ def topological_sort(inputs, outputs):
                 name_dict[n.__class__.__name__] += 1
             else:
                 name_dict[n.__class__.__name__] = 0
-            n.name = n.__class__.__name__.lower() + str(name_dict[n.__class__.__name__])
+            if n.__class__.__name__ in simple_name_dict.keys():
+                n.name = simple_name_dict[n.__class__.__name__] + str(name_dict[n.__class__.__name__])
+            else:
+                n.name = n.__class__.__name__.lower() + str(name_dict[n.__class__.__name__])
         if n in outputs:
             continue
         for m in n.out_bounds:

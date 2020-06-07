@@ -193,22 +193,13 @@ class Module:
         self.loss = loss
 
     def __str__(self):
-        bar_nums = 120
+        bar_nums = 75
         print('*' * bar_nums)
-
-        print('Layer(type)'.ljust(40), 'Output Shape'.ljust(40), 'Param'.ljust(12), 'Connected to'.ljust(15))
+        print('Layer(type)'.ljust(25), 'Output Shape'.ljust(20), 'Param'.ljust(10), 'Connected to'.ljust(15))
         print('#' * bar_nums)
         total_params = 0
-        name_dict = {}
         for layer in self.graph:
-            if layer.name is None:
-                if layer.__class__.__name__ not in name_dict.keys():
-                    name_dict[layer.__class__.__name__] = -1
-                name_dict[layer.__class__.__name__] += 1
-                layer.name = layer.__class__.__name__.lower() + str(name_dict[layer.__class__.__name__])
-
             layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
-
             params = layer.params_count()
             total_params += params
             first = True
@@ -219,14 +210,14 @@ class Module:
                     else:
                         connected = prev_layer.__class__.__name__
                     if first:
-                        print(layer_name.ljust(40), str((None,) + layer.shape).ljust(40), str(params).ljust(12),
+                        print(layer_name.ljust(25), str((None,) + layer.shape).ljust(20), str(params).ljust(10),
                               connected.ljust(15))
                         first = False
                     else:
-                        print(''.ljust(40), ''.ljust(40), ''.ljust(12), connected.ljust(15))
+                        print(''.ljust(25), ''.ljust(20), ''.ljust(10), connected.ljust(15))
             else:
                 connected = '\n'
-                print(layer_name.ljust(40), str((None,) + layer.shape).ljust(40), str(params).ljust(12),
+                print(layer_name.ljust(25), str((None,) + layer.shape).ljust(20), str(params).ljust(10),
                       connected.ljust(15))
             print('-' * bar_nums)
 

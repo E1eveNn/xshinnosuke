@@ -56,7 +56,7 @@ model = Sequential()
 Using `.add()` to connect layers:
 
 ```python
-from shinnosuke.layers import Dense
+from xshinnosuke.layers import Dense
 
 model.add(Dense(out_features=500, activation='relu', input_shape=(784, )))  # must be specify input_shape if current layer is the first layer of model
 model.add(Dense(out_features=10))
@@ -74,15 +74,15 @@ If your labels are `one-hot` encoded vectors/matrix, you shall specify loss as  
 Use `print(model)` to see details of model:
 
 ```python
-************************************************************************************************************************
-Layer(type)                              Output Shape                             Param        Connected to   
-########################################################################################################################
-Dense                                    (None, 500)                              392500       
+***************************************************************************
+Layer(type)               Output Shape         Param      Connected to   
+###########################################################################
+dense0 (Dense)            (None, 500)          392500     
               
-------------------------------------------------------------------------------------------------------------------------
-Dense                                    (None, 10)                               5010         Dense          
-------------------------------------------------------------------------------------------------------------------------
-************************************************************************************************************************
+---------------------------------------------------------------------------
+dense1 (Dense)            (None, 10)           5010       dense0         
+---------------------------------------------------------------------------
+***************************************************************************
 Total params: 397510
 Trainable params: 397510
 Non-trainable params: 0
