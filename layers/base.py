@@ -1,7 +1,7 @@
 from ..nn.core import Layer, Variable
 from ..nn.global_graph import np
-from ..nn.functional import pad_2d
-from ..nn.grad_fn import Pad2DBackward, NegBackward, MultiplyBackward, MatmulBackward, LogBackward, ExpBackward, SumBackward, MeanBackward, AbsBackward, PowBackward
+from ..nn.functional import pad_2d, reshape
+from ..nn.grad_fn import Pad2DBackward, NegBackward, MultiplyBackward, MatmulBackward, LogBackward, ExpBackward, SumBackward, MeanBackward, AbsBackward, PowBackward, ReshapeBackward
 from typing import Tuple, Union, List
 
 
@@ -253,7 +253,7 @@ class Abs(Layer):
 
 
 class Pow(Layer):
-    def __init__(self, exponent:int = 2):
+    def __init__(self, exponent: int = 2):
         self.exponent = exponent
         super().__init__()
 
@@ -270,3 +270,24 @@ class Pow(Layer):
 
     def backward(self, gradients=None):
         PowBackward(self.data)
+
+
+class Reshape(Layer):
+    def __init__(self, shape: Tuple, inplace: bool = True, **kwargs):
+        super().__init__(**kwargs)
+        self.shape = shape
+        self.inplace = inplace
+
+    def __call__(self, inbound: Layer):
+        super().__call__(inbound)
+        return self
+
+    def forward(self, x: Variable = None, is_training: bool = True, *args):
+        if x is not None:
+            self.input_data = x
+        self.data = reshape(self.input_data, self.shape, self.inplace)
+        self.connect_init(self.data, is_training)
+        return self.data
+
+    def backward(self, gradients=None):
+        ReshapeBackward(self.data)

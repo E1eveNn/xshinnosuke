@@ -80,12 +80,13 @@ def SumBackward(outputs):
 
 def MeanBackward(outputs):
     inputs, = outputs.in_bounds
+    grad = outputs.grad
     if inputs.requires_grad:
         mean_nums = inputs.data.size / outputs.data.size
         if outputs.data.ndim < inputs.data.ndim:
             axis = inputs.cache['axis']
             if axis is not None:
-                grad = np.expand_dims(outputs.grad, axis)
+                grad = np.expand_dims(grad, axis)
         inputs.grad += np.ones_like(inputs.data) * grad / mean_nums
 
 
@@ -282,7 +283,15 @@ def Batchnorm2DBackward(outputs):
         inputs.grad += grad
 
 
-def MeanSquaredbackward(outputs):
+def ReshapeBackward(outputs):
+    if outputs.cache['inplace']:
+        outputs.grad = np.reshape(outputs.grad, outputs.cache['input_shape'])
+    else:
+        inputs, = outputs.in_bounds
+        inputs.grad += np.reshape(outputs.grad, inputs.shape)
+
+
+def MeanSquaredBackward(outputs):
     y_pred, y_true = outputs.in_bounds
     gradients = outputs.grad * (y_pred.data - y_true.data) / y_pred.shape[0]
     if y_true.requires_grad:
@@ -298,7 +307,7 @@ def MeanSquaredbackward(outputs):
             y_pred.grad += gradients
 
 
-def MeanAbsolutebackward(outputs):
+def MeanAbsoluteBackward(outputs):
     y_pred, y_true = outputs.in_bounds
     pos = np.where((y_pred.data - y_true.data) < 0)
     mask = np.ones_like(y_pred.data)

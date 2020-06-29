@@ -171,7 +171,9 @@ def pad_2d(inputs: Variable, padding: tuple, inplace: bool = False):
     return outputs
 
 
-def dropout2d(inputs: Variable, keep_prob: float = 0.5):
+def dropout2d(inputs: Variable, keep_prob: float = 0.5, training: bool = True):
+    if not training:
+        return inputs
     random_tensor = np.random.binomial(n=1, p=keep_prob, size=inputs.data.shape)
     outputs = inputs.data * random_tensor / keep_prob
     outputs = Variable(data=outputs, in_bounds=[inputs])
@@ -183,7 +185,7 @@ def dropout2d(inputs: Variable, keep_prob: float = 0.5):
     return outputs
 
 
-def batchnorm_2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, epsilon: float, training: bool,
+def batchnorm_2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, epsilon: float, training: bool = True,
                  momentum: float = 0.99, moving_mean: np.ndarray = None, moving_variance: np.ndarray = None):
     if moving_mean is not None:
         inputs.cache['moving_mean'] = moving_mean
@@ -233,6 +235,21 @@ def batchnorm_2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, e
 
     outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta])
     outputs.grad_fn = Batchnorm2DBackward
+    initialize_ops_grad(inputs)
+    inputs.out_bounds.append(outputs)
+    return outputs
+
+
+def reshape(inputs: Variable, shape: Tuple, inplace: bool = True):
+    if inplace:
+        inputs.cache['inplace'] = inplace
+        inputs.cache['input_shape'] = inputs.shape
+        inputs.data = np.reshape(inputs.data, shape)
+        inputs.shape = inputs.data.shape
+        return inputs
+    outputs = Variable(data=np.reshape(inputs.data, shape), in_bounds=[inputs])
+    outputs.cache['inplace'] = inplace
+    outputs.grad_fn = ReshapeBackward
     initialize_ops_grad(inputs)
     inputs.out_bounds.append(outputs)
     return outputs

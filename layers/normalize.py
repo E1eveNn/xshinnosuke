@@ -15,7 +15,7 @@ class Dropout(Layer):
 
     def __call__(self, inbound):
         if isinstance(inbound, Variable):
-            output = dropout2d(self.input_data, self.keep_prob)
+            output = dropout2d(inbound, self.keep_prob)
             # output是一个Variable
             return output
         super(Dropout, self).__call__(inbound)
@@ -24,7 +24,7 @@ class Dropout(Layer):
     def forward(self, x: Variable = None, is_training=True, *args):
         if x is not None:
             self.input_data = x
-        self.data = dropout2d(self.input_data, self.keep_prob)
+        self.data = dropout2d(self.input_data, self.keep_prob, is_training)
         self.connect_init(self.data, is_training)
         return self.data
 
@@ -99,6 +99,11 @@ class LayerNormalization(Layer):
         self.variables.append(beta)
 
     def __call__(self, inbound):
+        if isinstance(inbound, Variable):
+            if len(self.variables) == 0:
+                self.initial_params(inbound.shape[1:])
+            output = self.forward(inbound)
+            return output
         Layer.__call__(self, inbound)
         return self
 
@@ -165,6 +170,11 @@ class GroupNormalization(Layer):
         self.variables.append(beta)
 
     def __call__(self, inbound):
+        if isinstance(inbound, Variable):
+            if len(self.variables) == 0:
+                self.initial_params(inbound.shape[1:])
+            output = self.forward(inbound)
+            return output
         Layer.__call__(self, inbound)
         return self
 

@@ -59,8 +59,6 @@ class ReLU(Layer):
         return self.data
 
     def backward(self, output: Variable = None):
-        if self.inplace:
-            raise RuntimeError('a leaf Variable that requires grad is being used in an in-place operation.')
         if output is not None:
             self.data = output
         ReluBackward(self.data)

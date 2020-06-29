@@ -4,16 +4,14 @@ from ..nn.global_graph import np
 
 
 class Embedding(Layer):
-    def __init__(self, input_dim, output_dim, embeddings_initializer='uniform', mask_zero=False, input_length=None, **kwargs):
+    def __init__(self, output_dim, embeddings_initializer='uniform', mask_zero=False, **kwargs):
         super(Embedding, self).__init__(**kwargs)
-        self.input_dim = input_dim
         self.output_dim = output_dim
         self.initializer = get_initializer(embeddings_initializer)
         self.mask_zero = mask_zero
-        self.input_shape = (input_length, )
 
     def initial_params(self):
-        w = Variable(self.initializer((self.input_dim, self.output_dim)), name='embedding_w')
+        w = Variable(self.initializer((self.input_shape[-1], self.output_dim)), name='embedding_w')
         self.variables.append(w)
 
     def compute_output_shape(self, input_shape=None):

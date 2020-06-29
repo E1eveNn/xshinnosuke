@@ -1,4 +1,4 @@
-from ..nn.initializers import get_initializer
+from ..nn.initializers import get_initializer, Initializer
 from .activators import get_activator
 from ..nn.core import Layer, Variable
 from ..nn import global_graph as GlobalGraph
@@ -9,9 +9,8 @@ from typing import Tuple, Union
 
 class Conv2D(Layer):
     def __init__(self, out_channels: int, kernel_size: Union[int, Tuple], use_bias: bool = False, stride: Union[int, Tuple] = 1, padding: Union[int, str] = 0,
-                 activation: str = None, kernel_initializer: str = 'Normal', bias_initializer: str = 'zeros',
-                 input_shape: Tuple = None,
-                 **kwargs):
+                 activation: str = None, kernel_initializer: Union[str, Initializer] = 'Normal',
+                 bias_initializer: Union[str, Initializer] = 'zeros', input_shape: Tuple = None, **kwargs):
         self.out_channels = out_channels
         self.kernel_size = self.__check_size(kernel_size)
         self.input_shape = input_shape
@@ -36,7 +35,7 @@ class Conv2D(Layer):
         w = Variable(self.kernel_initializer((self.out_channels, self.input_shape[0], self.kernel_size[0],
                                               self.kernel_size[1])), name='variable')
         if self.use_bias:
-            b = Variable(self.bias_initializer(1, self.out_channels), name='variable')
+            b = Variable(self.bias_initializer((1, self.out_channels)), name='variable')
         else:
             b = None
         self.variables.append(w)

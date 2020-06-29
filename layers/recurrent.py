@@ -200,7 +200,6 @@ class LSTMCell(Cell):
         self.tao_o = None
         self.c_tilde = None
 
-
     def initial_params(self, input_shape=None):
         n_in, n_out = input_shape
         # Wf_l means forget gate linear weight,Wf_r represents forget gate recurrent weight.
@@ -260,7 +259,7 @@ class LSTMCell(Cell):
         for t in range(1, time_steps + 1):
             zt = np.concatenate((self.prev_a[:, t-1, :], x.data[:, t-1, :]), axis=1)
             ot = zt.dot(W.data) + b.data
-            f = self.recurrent_activations[3 * (t-1)].forward(ot[:, :self.units])
+            f = self.recurrent_activations[3 * (t - 1)].forward(ot[:, :self.units])
             u = self.recurrent_activations[3 * (t - 1) + 1].forward(ot[:, self.units: self.units * 2])
             c_tilde = self.activations[t - 1].forward(ot[:, self.units * 2: self.units * 3])
             o = self.recurrent_activations[3 * (t - 1) + 2].forward(ot[:, self.units * 3:])
@@ -290,7 +289,7 @@ class LSTMCell(Cell):
                 dc += da * self.tao_o[:, t, :] * (1 - np.square(np.tanh(self.c[:, t+1, :])))
                 dc_tilde = dc * self.tao_u[:, t, :]
                 dc_tilde_before_act = self.activations[t].backward(dc_tilde)
-                dtao_u = dc*self.c_tilde[:, t, :]
+                dtao_u = dc * self.c_tilde[:, t, :]
                 du = self.recurrent_activations[3 * (t + 1) - 2].backward(dtao_u)
                 dtao_f = dc * self.c[:, t, :]
                 df = self.recurrent_activations[3 * (t + 1) - 3].backward(dtao_f)
@@ -343,7 +342,7 @@ class LSTMCell(Cell):
     def reset_state(self, shape):
         # timesteps here equals to real timesteps+1
         batch_nums, time_steps, units = shape
-        self.prev_a  = np.zeros(shape)
+        self.prev_a = np.zeros(shape)
         self.c = np.zeros(shape)
         self.tao_f = np.zeros((batch_nums, time_steps - 1, units))
         self.tao_u = np.zeros((batch_nums, time_steps - 1, units))

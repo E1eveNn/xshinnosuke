@@ -236,7 +236,7 @@ class Node:
 
         outputs = Variable(in_bounds=[self], data=self.data.reshape(*shapes))
         # 绑定反向求梯度的函数
-        outputs.grad_fn = AbsBackward
+        outputs.grad_fn = ViewBackward
         initialize_ops_grad(self)
         self.out_bounds.append(outputs)
         return outputs
@@ -272,6 +272,14 @@ class Node:
         outputs.grad_fn = ExpBackward
         initialize_ops_grad(self)
         self.out_bounds.append(outputs)
+        return outputs
+
+    def max(self, axis=None):
+        outputs = Variable(in_bounds=[self], data=np.max(self.data, axis=axis))
+        return outputs
+
+    def argmax(self, axis=None):
+        outputs = Variable(in_bounds=[self], data=np.argmax(self.data, axis=axis))
         return outputs
 
 

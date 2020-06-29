@@ -127,7 +127,7 @@ class DataSet:
 
 
 class DataLoader:
-    def __init__(self, dataset: DataSet, batch_size: int, shuffle: bool = False, seed: int = None):
+    def __init__(self, dataset: DataSet, batch_size: int = None, shuffle: bool = False, seed: int = None):
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -148,6 +148,8 @@ class DataLoader:
         return self.mini_batches[self.sp]
 
     def make_batches(self, datas: List[np.ndarray], batch_size: int, seed: int, shuffle: bool = False):
+        if batch_size is None:
+            return [datas, ]
         np.random.seed(seed)
         m = datas[0].shape[0]
         if shuffle:

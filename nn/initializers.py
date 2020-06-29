@@ -1,5 +1,6 @@
 from .global_graph import np
 import copy
+from typing import Tuple
 
 
 class Initializer:
@@ -119,6 +120,15 @@ class Zeros(Initializer):
 class Ones(Initializer):
     def __call__(self, size):
         return np.ones(size)
+
+
+class Constant(Initializer):
+    def __init__(self, value: float, seed=None):
+        super().__init__(seed=seed)
+        self.value = value
+
+    def __call__(self, size: Tuple):
+        return np.ones(size) * self.value
 
 
 def get_initializer(initializer):

@@ -55,7 +55,7 @@ class Module:
     def fit(self,
             x: np.ndarray,
             y: np.ndarray,
-            batch_size: int = 64,
+            batch_size: int = None,
             epochs: int = 1,
             verbose: int = 1,
             shuffle: bool = True,
@@ -64,6 +64,8 @@ class Module:
             initial_epoch: int = 0,
             ) -> dict:
 
+        x = np.asarray(x)
+        y = np.asarray(y)
         if validation_data is None and 0. < validation_split < 1.:
             split = int(x.shape[0] * validation_split)
             valid_x, valid_y = x[-split:], y[-split:]
@@ -168,7 +170,7 @@ class Module:
 
         return pred
 
-    def forward(self, x, *args):
+    def forward(self, x):
         raise NotImplemented
 
     def backward(self, loss: Variable):
@@ -239,7 +241,7 @@ class Sequential(Module):
     def add(self, layer):
         self.graph.append(layer)
 
-    def compile(self, optimizer, loss):
+    def compile(self, optimizer, loss, **kwargs):
         assert self.graph
         next_layer = None
         for layer in self.graph:
@@ -250,10 +252,10 @@ class Sequential(Module):
                 if v is not None and v.requires_grad and v not in self.trainable_variables:
                     self.trainable_variables.append(v)
         self.loss = get_objective(loss)
-        self.optimizer = get_optimizer(optimizer)
+        self.optimizer = get_optimizer(optimizer, **kwargs)
         self.optimizer.trainable_variables = self.trainable_variables
 
-    def forward(self, x, *args):
+    def forward(self, x):
         for layer in self.graph:
             if hasattr(layer, 'variables') and len(layer.variables) == 0:
                 layer.initial_params(x.shape[1:])
@@ -296,7 +298,7 @@ class Model(Module):
         self.optimizer = get_optimizer(optimizer, **kwargs)
         self.optimizer.trainable_variables = self.trainable_variables
 
-    def forward(self, x: Variable, *args):
+    def forward(self, x: Variable):
         self.inputs.input_data = x
         outputs = None
         for layer in self.graph:
