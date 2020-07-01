@@ -1,4 +1,4 @@
-from utils import SGFflie
+from .utils import SGFflie
 import os
 import xshinnosuke
 from xshinnosuke.models import Sequential

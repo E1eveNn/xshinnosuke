@@ -10,9 +10,8 @@ from tkinter import *
 from tkinter.ttk import *
 from tkinter.filedialog import askopenfilename
 from tkinter.filedialog import asksaveasfile
-import os
-from network import CNN
-from utils import *
+from .network import CNN
+from .utils import *
 
 
 class GoBang:
@@ -410,7 +409,7 @@ class GoBang:
         self.window.mainloop()
 
 
-if __name__ == '__main__':
+def go():
     game = GoBang()
     game.start()
     del game

@@ -1,5 +1,5 @@
 from .core import Variable
-from .grad_fn import MeanSquaredbackward, MeanAbsolutebackward, BinaryCrossEntropyBackward, SparseCrossEntropyBackward, CrossEntropyBackward
+from .grad_fn import MeanSquaredBackward, MeanAbsoluteBackward, BinaryCrossEntropyBackward, SparseCrossEntropyBackward, CrossEntropyBackward
 import copy
 from .functional import softmax
 from functools import reduce
@@ -32,7 +32,7 @@ class Objective:
 class MeanSquaredError(Objective):
     def __init__(self):
         super().__init__()
-        self.grad_fn = MeanSquaredbackward
+        self.grad_fn = MeanSquaredBackward
 
     def acc(self, y_pred: Variable, y_true: Variable):
         return 0.
@@ -47,7 +47,7 @@ class MeanSquaredError(Objective):
 class MeanAbsoluteError(Objective):
     def __init__(self):
         super().__init__()
-        self.grad_fn = MeanAbsolutebackward
+        self.grad_fn = MeanAbsoluteBackward
 
     def acc(self, y_pred: Variable, y_true: Variable):
         return 0.

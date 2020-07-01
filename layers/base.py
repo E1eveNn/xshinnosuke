@@ -279,13 +279,18 @@ class Reshape(Layer):
         self.inplace = inplace
 
     def __call__(self, inbound: Layer):
+        if isinstance(inbound, Variable):
+            return reshape(inbound, (-1, ) + self.shape, self.inplace)
         super().__call__(inbound)
         return self
+
+    def compute_output_shape(self, input_shape: Union[List, Tuple] = None) -> Union[List, Tuple]:
+        return self.shape
 
     def forward(self, x: Variable = None, is_training: bool = True, *args):
         if x is not None:
             self.input_data = x
-        self.data = reshape(self.input_data, self.shape, self.inplace)
+        self.data = reshape(self.input_data, (-1, ) + self.shape, self.inplace)
         self.connect_init(self.data, is_training)
         return self.data
 

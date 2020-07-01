@@ -1,1 +1,1 @@
-from .main import GoBang
+from .ui import go

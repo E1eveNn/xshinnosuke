@@ -1,4 +1,4 @@
-from network import CNN
+from .network import CNN
 
 
 net = CNN()
