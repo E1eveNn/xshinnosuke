@@ -170,6 +170,12 @@ def DenseBackward(outputs):
         inputs.grad += outputs.grad.dot(weight.data.T)
 
 
+def EmbeddingBackward(outputs):
+    inputs, weight = outputs.in_bounds
+    if weight.requires_grad:
+        weight.grad[inputs.data.astype(np.int)] += outputs.grad
+
+
 def Conv2DBackward(outputs):
     inputs, weight, bias = outputs.in_bounds
     n, in_channels, h, w = inputs.data.shape

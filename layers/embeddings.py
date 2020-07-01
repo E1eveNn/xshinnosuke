@@ -1,6 +1,7 @@
 from ..nn.core import Layer, Variable
 from xshinnosuke.nn.initializers import get_initializer
-from ..nn.global_graph import np
+from ..nn.functional import embedding
+from ..nn.grad_fn import EmbeddingBackward
 
 
 class Embedding(Layer):
@@ -25,13 +26,10 @@ class Embedding(Layer):
         if x is not None:
             self.input_data = x
         assert self.input_data.data.ndim == 2
-        w, = self.variables
-        # to one-hot
-        self.data = w.data[self.input_data.data]
+
+        self.data = embedding(self.input_data, self.variables[0])
         self.connect_init(self.data, is_training)
         return self.data
 
     def backward(self, gradients=None):
-        w, = self.variables
-        if w.requires_grad:
-            np.add.at(w.grad, self.input_data.data, self.data.grad)
+        EmbeddingBackward(self)

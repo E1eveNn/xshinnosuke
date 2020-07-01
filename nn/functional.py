@@ -67,6 +67,14 @@ def flatten(inputs: Variable, start: int = 1,inplace: bool = False):
     return outputs
 
 
+def embedding(inputs: Variable, weight: Variable):
+    outputs = Variable(weight.data[inputs.data.astype(np.int)], in_bounds=[inputs, weight])
+    outputs.grad_fn = EmbeddingBackward
+    inputs.out_bounds.append(outputs)
+    initialize_ops_grad(inputs, weight)
+    return outputs
+
+
 def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tuple = 1, padding: int = 0):
     # before pad size
     batch_nums, n_c_prev, n_h_prev, n_w_prev = inputs.data.shape
