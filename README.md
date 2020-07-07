@@ -22,13 +22,11 @@ Here are some features of Shinnosuke:
 
 XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
-`###################################### \^^xshinnosuke documents^^/ ######################################`
-
-<div align=center><a href=https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/XShinnosuke-API.ipynb>Jupyter Notebook</a></div>
-
-------
 
 
+[API docs](https://elevennn.github.io/xshinnosuke/)       [Notebook](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/XShinnosuke-API.ipynb)
+
+---
 
 ## Getting started
 
@@ -267,13 +265,12 @@ Then you can install XShinnosuke by using pip:
 - Multiply
 - Matmul
 - Log
-
-+ Negative
-+ Exp
-+ Sum
-+ Abs
-+ Mean
-+ Pow
+- Negative
+- Exp
+- Sum
+- Abs
+- Mean
+- Pow
 
 #### - Node:
 
