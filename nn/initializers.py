@@ -8,16 +8,16 @@ class Initializer:
         if seed is not None:
             np.random.seed(seed)
 
-    def decompose_size(self, size):
-        size = np.array(size)
-        if size.ndim == 2:
-            fan_in, fan_out = size
-        elif size.ndim == 4 or size.ndim == 5:
-            respective_field_size = np.prod(size[2:])
-            fan_in = size[1] * respective_field_size
-            fan_out = size[0] * respective_field_size
+    def decompose_size(self, shape):
+        shape = np.array(shape)
+        if shape.ndim == 2:
+            fan_in, fan_out = shape
+        elif shape.ndim == 4 or shape.ndim == 5:
+            respective_field_size = np.prod(shape[2:])
+            fan_in = shape[1] * respective_field_size
+            fan_out = shape[0] * respective_field_size
         else:
-            fan_in = fan_out = int(np.sqrt(np.prod(size)))
+            fan_in = fan_out = int(np.sqrt(np.prod(shape)))
         return fan_in, fan_out
 
 
@@ -26,35 +26,35 @@ class Uniform(Initializer):
         self.scale = scale
         super(Uniform, self).__init__(seed)
 
-    def __call__(self, size):
-        return np.random.uniform(-self.scale, self.scale, size=size)
+    def __call__(self, shape):
+        return np.random.uniform(-self.scale, self.scale, shape=shape)
 
 
 class LecunUniform(Initializer):
     def __init__(self, seed=None):
         super(LecunUniform, self).__init__(seed)
 
-    def __call__(self, size):
-        fan_in, fan_out = self.decompose_size(size)
-        return Uniform(np.sqrt(3. / fan_in))(size)
+    def __call__(self, shape):
+        fan_in, fan_out = self.decompose_size(shape)
+        return Uniform(np.sqrt(3. / fan_in))(shape)
 
 
 class GlorotUniform(Initializer):
     def __init__(self, seed=None):
         super(GlorotUniform, self).__init__(seed)
 
-    def __call__(self, size):
-        fan_in, fan_out = self.decompose_size(size)
-        return Uniform(np.sqrt(6. / (fan_in + fan_out)))(size)
+    def __call__(self, shape):
+        fan_in, fan_out = self.decompose_size(shape)
+        return Uniform(np.sqrt(6. / (fan_in + fan_out)))(shape)
 
 
 class HeUniform(Initializer):
     def __init__(self, seed=None):
         super(HeUniform, self).__init__(seed)
 
-    def __call__(self, size):
-        fan_in, fan_out = self.decompose_size(size)
-        return Uniform(np.sqrt(6. / fan_in))(size)
+    def __call__(self, shape):
+        fan_in, fan_out = self.decompose_size(shape)
+        return Uniform(np.sqrt(6. / fan_in))(shape)
 
 
 class Normal(Initializer):
@@ -63,35 +63,35 @@ class Normal(Initializer):
         self.mean = mean
         super(Normal, self).__init__(seed)
 
-    def __call__(self, size):
-        return np.random.normal(loc=self.mean, scale=self.std, size=size)
+    def __call__(self, shape):
+        return np.random.normal(loc=self.mean, scale=self.std, shape=shape)
 
 
 class LecunNormal(Initializer):
     def __init__(self, seed=None):
         super(LecunNormal, self).__init__(seed)
 
-    def __call__(self, size):
-        fan_in, fan_out = self.decompose_size(size)
-        return Normal(np.sqrt(1. / fan_in))(size)
+    def __call__(self, shape):
+        fan_in, fan_out = self.decompose_size(shape)
+        return Normal(np.sqrt(1. / fan_in))(shape)
 
 
 class GlorotNormal(Initializer):
     def __init__(self, seed=None):
         super(GlorotNormal, self).__init__(seed)
 
-    def __call__(self, size):
-        fan_in, fan_out = self.decompose_size(size)
-        return Normal(np.sqrt(2. / (fan_in + fan_out)))(size)
+    def __call__(self, shape):
+        fan_in, fan_out = self.decompose_size(shape)
+        return Normal(np.sqrt(2. / (fan_in + fan_out)))(shape)
 
 
 class HeNormal(Initializer):
     def __init__(self, seed=None):
         super(HeNormal, self).__init__(seed)
 
-    def __call__(self, size):
-        fan_in, fan_out = self.decompose_size(size)
-        return Normal(np.sqrt(2. / fan_in))(size)
+    def __call__(self, shape):
+        fan_in, fan_out = self.decompose_size(shape)
+        return Normal(np.sqrt(2. / fan_in))(shape)
 
 
 class Orthogonal(Initializer):
@@ -101,34 +101,49 @@ class Orthogonal(Initializer):
         self.gain = gain
         super(Orthogonal, self).__init__(seed)
 
-    def __call__(self, size):
-        size = np.array(size)
-        flat_shape = (size[0].tolist(), np.prod(size[1:]).tolist())
+    def __call__(self, shape):
+        shape = np.array(shape)
+        flat_shape = (shape[0].tolist(), np.prod(shape[1:]).tolist())
         a = Normal(1.)(flat_shape)
         u, _, v = np.linalg.svd(a, full_matrices=False)
         q = u if u.shape == flat_shape else v
-        q = q.reshape(size.tolist())
+        q = q.reshape(shape.tolist())
         q = self.gain * q
         return q
 
 
 class Zeros(Initializer):
-    def __call__(self, size):
-        return np.zeros(size)
+    def __call__(self, shape):
+        return np.zeros(shape)
 
 
 class Ones(Initializer):
-    def __call__(self, size):
-        return np.ones(size)
+    def __call__(self, shape):
+        return np.ones(shape)
 
 
-class Constant(Initializer):
+class Matrix(Initializer):
     def __init__(self, value: float, seed=None):
         super().__init__(seed=seed)
         self.value = value
 
-    def __call__(self, size: Tuple):
-        return np.ones(size) * self.value
+    def __call__(self, shape: Tuple):
+        return np.ones(shape) * self.value
+    
+
+class RandN(Initializer):
+    def __call__(self, shape: Tuple):
+        return np.random.randn(shape)
+
+
+class Rand(Initializer):
+    def __call__(self, shape: Tuple):
+        return np.random.rand(shape)
+
+
+class RandInt(Initializer):
+    def __call__(self, low, high=None, shape=None):
+        return np.random.randint(low=low, high=high, size=shape)
 
 
 def get_initializer(initializer):

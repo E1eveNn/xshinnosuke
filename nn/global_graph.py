@@ -1,5 +1,7 @@
-
-np = __import__('cupy')
+try:
+    np = __import__('cupy')
+except ModuleNotFoundError:
+    np = __import__('numpy')
 
 inputs = None
 outputs = None

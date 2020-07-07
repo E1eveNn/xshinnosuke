@@ -1,5 +1,7 @@
 from .global_graph import np
 from typing import Tuple
+from .initializers import Ones, Zeros, Rand, RandN, RandInt
+
 
 def im2col(inputs: np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: int, stride: Tuple):
     batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs.shape
@@ -39,3 +41,31 @@ def initialize_ops_grad(*ops):
     for op in ops:
         if op is not None and op.requires_grad:
             op.zero_grad()
+
+
+def ones(*shape):
+    return Ones()(shape)
+
+
+def ones_like(a):
+    return np.ones_like(a)
+
+
+def zeros(*shape):
+    return Zeros()(shape)
+
+
+def zeros_like(a):
+    return np.zeros_like(a)
+
+
+def rand(*shape):
+    return Rand()(shape)
+
+
+def randn(*shape):
+    return RandN()(shape)
+
+
+def randint(low, high=None, shape=None):
+    return RandInt()(low, high, shape)
