@@ -8,15 +8,15 @@
 
 ## Descriptions
 
-XShinnosuke is a high-level neural network framework which supports for both **dynamic graph** and **static graph**, and has almost the same API to **Keras** and **Pytorch** with *slightly differences*. It was written by Python only, and dedicated to realize experimentations quickly.
+XShinnosuke is a high-level neural network framework which supports for both **Dynamic Graph** and **Static Graph**, and has almost the same API to **Keras** and **Pytorch** with *slightly differences*. **It was written by Python only**, and dedicated to realize experimentations quickly.
 
 Here are some features of Shinnosuke:
 
 1. Based on **Cupy**(Gpu version of **Numpy**)  and **native** to Python.  
 2. **Without** any other **3rd-party** deep learning library.
 3. **Keras and Pytorch style API**, easy to start.
-4. Support commonly used layers such as: *Dense, Conv2D, MaxPooling2D, LSTM, SimpleRNN, etc*, and commonly used function: *conv2d, max_pool2d, relu, etc*.
-5. **Sequential** model (for most  sequence network combinations ) and **Functional** model (for resnet, etc) are implemented, meanwhile, XShinnosuke also supports for design your own network by **Module**.
+4. Supports commonly used layers such as: *Dense, Conv2D, MaxPooling2D, LSTM, SimpleRNN, etc*, and commonly used function: *conv2d, max_pool2d, relu, etc*.
+5. **Sequential** model (for most  sequence network combinations ) and **Functional** model (for resnet, etc) are implemented. Meanwhile, XShinnosuke also supports for design your own network by **Module**.
 6. Training and inference supports for both **dynamic graph** and **static graph**.
 7. **Autograd** is supported .
 
@@ -34,18 +34,16 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 **Here are two styles of xshinnosuke written resnet18~**
 
-1. [Pytorch style](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_dynamic_graph.ipynb)
-2. [Keras style](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
+1. [Dynamic Graph with Module](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_dynamic_graph.ipynb)
+2. [Static Graph with Functional Model](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
 
+---
 
-
-Belows are simple demo of these style.
-
-### 1. Keras style
+### 1. Static Graph
 
 The core networks of XShinnosuke is a model, which provide a way to combine layers. There are two model types: **Sequential** (a linear stack of layers) and **Functional** (build  a graph for layers).
 
-Here is a example of **Sequential** model:
+For **Sequential** model:
 
 ```python
 from xshinnosuke.models import Sequential
@@ -66,10 +64,9 @@ Once you have constructed your model, you should configure it with `.compile()` 
 
 ```python
 model.compile(loss='sparse_crossentropy', optimizer='sgd')
-print(model)
 ```
 
-If your labels are `one-hot` encoded vectors/matrix, you shall specify loss as  *sparse_crossentropy*, otherwise use *crossentropy* instead. (While in **Keras** *categorical_crossentropy* supports for one-hot encoded labels).
+If your labels are `one-hot` encoded vectors/matrix, you shall specify loss as  *sparse_crossentropy*, otherwise use *crossentropy* instead.
 
 Use `print(model)` to see details of model:
 
@@ -92,7 +89,7 @@ Start training your network by `fit()`:
 
 ```python
 # trainX and trainy are Cupy ndarray
-model.fit(trainX, trainy, batch_size=128, epochs=5)
+history = model.fit(trainX, trainy, batch_size=128, epochs=5)
 ```
 
 Once completing training your model, you can save or load your model by `save()` / `load()`, respectively.
@@ -106,14 +103,16 @@ Evaluate your model performance by `evaluate()`:
 
 ```python
 # testX and testy are Cupy ndarray
-acc, loss = model.evaluate(testX, testy, batch_size=128)
+accuracy, loss = model.evaluate(testX, testy, batch_size=128)
 ```
 
 Inference through `predict()`:
 
 ```python
-pred = model.predict(testX)
+predict = model.predict(testX)
 ```
+
+---
 
 For **Functional** model:
 
@@ -123,7 +122,7 @@ Combine your layers by functional API:
 from xshinnosuke.models import Model
 from xshinnosuke.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
 
-X_input = Input(input_shape = (1, 28, 28))   # (batch_size, channels, height, width)
+X_input = Input(input_shape = (1, 28, 28))   # (channels, height, width)
 X = Conv2D(8, (2, 2), activation='relu')(X_input)
 X = MaxPooling2D((2, 2))(X)
 X = Flatten()(X)
@@ -133,11 +132,9 @@ model.compile(optimizer='sgd', loss='sparse_cross_entropy')
 model.fit(trainX, trainy, batch_size=256, epochs=80)
 ```
 
-Pass inputs and outputs layer to `Model()`, and then compile and fit model as `Sequential`model.
+Pass inputs and outputs layer to `Model()`, then **compile** and **fit** model as `Sequential`model.
 
-### 2. Pytorch style
-
-The core method to design your network in pytorch style is by **Module**.
+### 2. Dynamic Style
 
 First design your own network, make sure your network is inherited from **Module** and *override* the `__init__()` and `forward()` function:
 
@@ -171,13 +168,15 @@ from xshinnosuke.utils import DataSet, DataLoader
 from xshinnosuke.nn import Variable, CrossEntropy
 import cupy as np
 
-net = MyNet()
+
 # random generate data
 X = np.random.randn(100, 3, 12, 12)
 Y = np.random.randint(0, 10, (100, ))
 # generate training dataloader
 train_dataset = DataSet(X, Y)
 train_loader = DataLoader(dataset=train_dataset, batch_size=10, shuffle=True)
+# initialize net
+net = MyNet()
 # specify optimizer and critetion
 optimizer = SGD(net.parameters())
 critetion = CrossEntropy()
@@ -196,15 +195,33 @@ for epoch in range(EPOCH):
         print(f'epoch -> {epoch}, train_acc: {train_acc}, train_loss: {train_loss}')
 ```
 
-
-
 Building an image classification model, a question answering system or any other model is just as convenient and fast~
 
-
+---
 
 ## Autograd
 
-XShinnosuke override the basic operators such as: `+, -, *, \, **, etc` and supports some common functions: `matmul(),mean(), sum(). log(), view(), etc `. Here is an example of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb).
+Xshinnosuke's **autograd** supports for basic operators such as: `+, -, *, \, **, etc` and some common functions: `matmul(), mean(), sum(), log(), view(), etc `. 
+
+```python
+from xshinnosuke.nn import Variable
+
+a = Variable(5)
+b = Variable(10)
+c = Variable(3)
+x = (a + b) * c
+y = x ** 2
+print('x: ', x)  # x:  Variable(45.0, requires_grad=True, grad_fn=<MultiplyBackward>)
+print('y: ', y)  # y:  Variable(2025.0, requires_grad=True, grad_fn=<PowBackward>)
+x.retain_grad()
+y.backward()
+print('x grad:', x.grad)  # x grad: 90.0
+print('c grad:', c.grad)  # c grad: 1350.0
+print('b grad:', b.grad)  # b grad: 270.0
+print('a grad:', a.grad)  # a grad: 270.0
+```
+
+Here is an example of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb), which use `Variable` to implement a simple mlp. 
 
 ## Installation
 
@@ -234,7 +251,7 @@ Then you can install XShinnosuke by using pip:
 - Flatten
 - Conv2D
 - MaxPooling2D
-- MeanPooling2D
+- AvgPooling2D
 - Activation
 - Input
 - Dropout
@@ -249,8 +266,8 @@ Then you can install XShinnosuke by using pip:
 - Add
 - Multiply
 - Matmul
+- Log
 
-+ Log
 + Negative
 + Exp
 + Sum
@@ -258,14 +275,10 @@ Then you can install XShinnosuke by using pip:
 + Mean
 + Pow
 
-
-
 #### - Node:
 
 - Variable
 - Constant
-
-
 
 ### Optimizers
 
