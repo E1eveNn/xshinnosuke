@@ -12,7 +12,7 @@ XShinnosuke is a high-level neural network framework which supports for both **D
 
 Here are some features of Shinnosuke:
 
-1. Based on **Cupy**(Gpu version of **Numpy**)  and **native** to Python.  
+1. Based on **Cupy**(GPU version)/**Numpy**  and **native** to Python.  
 2. **Without** any other **3rd-party** deep learning library.
 3. **Keras and Pytorch style API**, easy to start.
 4. Supports commonly used layers such as: *Dense, Conv2D, MaxPooling2D, LSTM, SimpleRNN, etc*, and commonly used function: *conv2d, max_pool2d, relu, etc*.
@@ -166,7 +166,6 @@ from xshinnosuke.utils import DataSet, DataLoader
 from xshinnosuke.nn import Variable, CrossEntropy
 import cupy as np
 
-
 # random generate data
 X = np.random.randn(100, 3, 12, 12)
 Y = np.random.randint(0, 10, (100, ))
@@ -225,7 +224,9 @@ Here is an example of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/ma
 
 Before installing XShinnosuke, please install the following **dependencies**:
 
-- Cupy = 6.0.0 (recommend)
++ Numpy
+
+- Cupy = 6.0.0 (**Optional**, if installed, Xshinnosuke will use this first)
 
 ```markdown
 notice that cupy requires **Microsoft Visual C++ 14.0**

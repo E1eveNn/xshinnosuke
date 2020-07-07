@@ -1,4 +1,5 @@
-![shinnosuke](https://ss0.bdstatic.com/70cFvHSh_Q1YnxGkpoWK1HF6hhy/it/u=1784511497,119911411&fm=26&gp=0.jpg)
+<div align=center><img src="https://ss0.bdstatic.com/70cFvHSh_Q1YnxGkpoWK1HF6hhy/it/u=1784511497,119911411&fm=26&gp=0.jpg"></div>
+
 
 
 <h1>Contents</h1>
@@ -11,7 +12,7 @@
             <li><h3><a href="#pad">ZeroPadding2D</a></h3></li>
             <li><h3><a href="#conv">Conv2D</a></h3></li>
             <li><h3><a href="#maxpool">MaxPooling2D</a></h3></li>
-            <li><h3><a href="#meanpool">MeanPooling2D</a></h3></li>
+            <li><h3><a href="#meanpool">AvgPooling2D</a></h3></li>
             <li><h3><a href="#act">Activation</a></h3></li>
             <li><h3><a href="#reshape">Reshape</a></h3></li>
             <li><h3><a href="#dropout">Dropout</a></h3></li>
