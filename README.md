@@ -24,7 +24,7 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 
 
-[API docs](https://elevennn.github.io/xshinnosuke/)       [Notebook](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/XShinnosuke-API.ipynb)
+[API docs](https://github.com/eLeVeNnN/xshinnosuke/blob/master/docs/docs.md)       [Notebook](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/XShinnosuke-API.ipynb)
 
 ---
 
