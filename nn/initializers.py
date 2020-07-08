@@ -1,4 +1,5 @@
 from .global_graph import np
+from .core import Variable
 import copy
 from typing import Tuple
 
@@ -26,35 +27,39 @@ class Uniform(Initializer):
         self.scale = scale
         super(Uniform, self).__init__(seed)
 
-    def __call__(self, shape):
-        return np.random.uniform(-self.scale, self.scale, shape=shape)
+    def __call__(self, shape, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.random.uniform(-self.scale, self.scale, size=shape), name=name)
 
 
 class LecunUniform(Initializer):
     def __init__(self, seed=None):
         super(LecunUniform, self).__init__(seed)
 
-    def __call__(self, shape):
+    def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        return Uniform(np.sqrt(3. / fan_in))(shape)
+        name = kwargs.pop('name', None)
+        return Uniform(np.sqrt(3. / fan_in))(shape, name=name)
 
 
 class GlorotUniform(Initializer):
     def __init__(self, seed=None):
         super(GlorotUniform, self).__init__(seed)
 
-    def __call__(self, shape):
+    def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        return Uniform(np.sqrt(6. / (fan_in + fan_out)))(shape)
+        name = kwargs.pop('name', None)
+        return Uniform(np.sqrt(6. / (fan_in + fan_out)))(shape, name=name)
 
 
 class HeUniform(Initializer):
     def __init__(self, seed=None):
         super(HeUniform, self).__init__(seed)
 
-    def __call__(self, shape):
+    def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        return Uniform(np.sqrt(6. / fan_in))(shape)
+        name = kwargs.pop('name', None)
+        return Uniform(np.sqrt(6. / fan_in))(shape, name=name)
 
 
 class Normal(Initializer):
@@ -63,35 +68,39 @@ class Normal(Initializer):
         self.mean = mean
         super(Normal, self).__init__(seed)
 
-    def __call__(self, shape):
-        return np.random.normal(loc=self.mean, scale=self.std, shape=shape)
+    def __call__(self, shape, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.random.normal(loc=self.mean, scale=self.std, size=shape), name=name)
 
 
 class LecunNormal(Initializer):
     def __init__(self, seed=None):
         super(LecunNormal, self).__init__(seed)
 
-    def __call__(self, shape):
+    def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        return Normal(np.sqrt(1. / fan_in))(shape)
+        name = kwargs.pop('name', None)
+        return Normal(np.sqrt(1. / fan_in))(shape, name=name)
 
 
 class GlorotNormal(Initializer):
     def __init__(self, seed=None):
         super(GlorotNormal, self).__init__(seed)
 
-    def __call__(self, shape):
+    def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        return Normal(np.sqrt(2. / (fan_in + fan_out)))(shape)
+        name = kwargs.pop('name', None)
+        return Normal(np.sqrt(2. / (fan_in + fan_out)))(shape, name=name)
 
 
 class HeNormal(Initializer):
     def __init__(self, seed=None):
         super(HeNormal, self).__init__(seed)
 
-    def __call__(self, shape):
+    def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        return Normal(np.sqrt(2. / fan_in))(shape)
+        name = kwargs.pop('name', None)
+        return Normal(np.sqrt(2. / fan_in))(shape, name=name)
 
 
 class Orthogonal(Initializer):
@@ -101,25 +110,28 @@ class Orthogonal(Initializer):
         self.gain = gain
         super(Orthogonal, self).__init__(seed)
 
-    def __call__(self, shape):
+    def __call__(self, shape, **kwargs):
         shape = np.array(shape)
         flat_shape = (shape[0].tolist(), np.prod(shape[1:]).tolist())
-        a = Normal(1.)(flat_shape)
-        u, _, v = np.linalg.svd(a, full_matrices=False)
+        name = kwargs.pop('name', None)
+        a = Normal(1.)(flat_shape, name=name)
+        u, _, v = np.linalg.svd(a.data, full_matrices=False)
         q = u if u.shape == flat_shape else v
         q = q.reshape(shape.tolist())
-        q = self.gain * q
-        return q
+        a.data = self.gain * q
+        return a
 
 
 class Zeros(Initializer):
-    def __call__(self, shape):
-        return np.zeros(shape)
+    def __call__(self, shape, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.zeros(shape), name=name)
 
 
 class Ones(Initializer):
-    def __call__(self, shape):
-        return np.ones(shape)
+    def __call__(self, shape, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.ones(shape), name=name)
 
 
 class Matrix(Initializer):
@@ -127,23 +139,55 @@ class Matrix(Initializer):
         super().__init__(seed=seed)
         self.value = value
 
-    def __call__(self, shape: Tuple):
-        return np.ones(shape) * self.value
+    def __call__(self, shape: Tuple, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.ones(shape) * self.value, name=name)
     
 
 class RandN(Initializer):
-    def __call__(self, shape: Tuple):
-        return np.random.randn(shape)
+    def __call__(self, shape: Tuple, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.random.randn(*shape), name=name)
 
 
 class Rand(Initializer):
-    def __call__(self, shape: Tuple):
-        return np.random.rand(shape)
+    def __call__(self, shape: Tuple, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.random.rand(*shape), name=name)
 
 
 class RandInt(Initializer):
-    def __call__(self, low, high=None, shape=None):
-        return np.random.randint(low=low, high=high, size=shape)
+    def __call__(self, low, high=None, shape=None, **kwargs):
+        name = kwargs.pop('name', None)
+        return Variable(np.random.randint(low=low, high=high, size=shape), name=name)
+
+
+def ones(*shape, **kwargs):
+    return Ones()(shape, **kwargs)
+
+
+def ones_like(a, **kwargs):
+    return np.ones_like(a, **kwargs)
+
+
+def zeros(*shape, **kwargs):
+    return Zeros()(shape, **kwargs)
+
+
+def zeros_like(a, **kwargs):
+    return np.zeros_like(a, **kwargs)
+
+
+def rand(*shape, **kwargs):
+    return Rand()(shape, **kwargs)
+
+
+def randn(*shape, **kwargs):
+    return RandN()(shape, **kwargs)
+
+
+def randint(low, high=None, shape=None, **kwargs):
+    return RandInt()(low, high, shape, **kwargs)
 
 
 def get_initializer(initializer):

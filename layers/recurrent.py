@@ -1,6 +1,6 @@
 from ..nn.core import Layer, Variable
 from .activators import get_activator
-from xshinnosuke.nn.initializers import get_initializer
+from ..nn.initializers import get_initializer, ones
 from ..nn.functional import concatenate
 from ..nn.toolkit import initialize_ops_grad
 from ..nn.global_graph import np
@@ -98,9 +98,9 @@ class SimpleRNNCell(Cell):
 
     def initial_params(self, input_shape=None):
         n_in, n_out = input_shape
-        Wxa = Variable(self.initializer((n_in, n_out)), name='variable')
-        Waa = Variable(self.recurrent_initializer((n_out, n_out)), name='variable')
-        ba = Variable(np.zeros(n_out), name='variable')
+        Wxa = self.initializer((n_in, n_out), name='xs_variable')
+        Waa = self.recurrent_initializer((n_out, n_out), name='xs_variable')
+        ba = ones(n_out, name='xs_variable')
         self.variables.append(Wxa)
         self.variables.append(Waa)
         self.variables.append(ba)
@@ -205,24 +205,23 @@ class LSTMCell(Cell):
         # Wf_l means forget gate linear weight,Wf_r represents forget gate recurrent weight.
 
         # forget gate
-        Wf_l = Variable(self.initializer((n_in, n_out)), name='variable')
-        Wf_r = Variable(self.recurrent_initializer((n_out, n_out)), name='variable')
+        Wf_l = self.initializer((n_in, n_out))
+        Wf_r = self.recurrent_initializer((n_out, n_out))
         # update gate
-        Wu_l = Variable(self.initializer((n_in, n_out)), name='variable')
-        Wu_r = Variable(self.recurrent_initializer((n_out, n_out)), name='variable')
+        Wu_l = self.initializer((n_in, n_out))
+        Wu_r =self.recurrent_initializer((n_out, n_out))
         # update unit
-        Wc_l = Variable(self.initializer((n_in, n_out)), name='variable')
-        Wc_r = Variable(self.recurrent_initializer((n_out, n_out)), name='variable')
+        Wc_l = self.initializer((n_in, n_out))
+        Wc_r = self.recurrent_initializer((n_out, n_out))
         # output gate
-        Wo_l = Variable(self.initializer((n_in, n_out)), name='variable')
-        Wo_r = Variable(self.recurrent_initializer((n_out, n_out)), name='variable')
+        Wo_l = self.initializer((n_in, n_out))
+        Wo_r = self.recurrent_initializer((n_out, n_out))
 
         Wf = concatenate(Wf_r, Wf_l, axis=0, name='variable')
         Wu = concatenate(Wu_r, Wu_l, axis=0, name='variable')
         Wc = concatenate(Wc_r, Wc_l, axis=0, name='variable')
         Wo = concatenate(Wo_r, Wo_l, axis=0, name='variable')
-        W = concatenate(Wf, Wu, Wc, Wo, axis=1)
-
+        W = concatenate(Wf, Wu, Wc, Wo, axis=1, name='xs_variable')
         if self.unit_forget_bias:
             bf = Variable(np.ones((1, n_out)), name='variable')
         else:
@@ -230,7 +229,8 @@ class LSTMCell(Cell):
         bu = Variable(np.zeros((1, n_out)), name='variable')
         bc = Variable(np.zeros((1, n_out)), name='variable')
         bo = Variable(np.zeros((1, n_out)), name='variable')
-        b = concatenate(bf, bu, bc, bo, axis=1, name='variable')
+        b = concatenate(bf, bu, bc, bo, axis=1, name='xs_variable')
+
         del Wf_r, Wf_l, Wu_r, Wu_l, Wc_r, Wc_l, Wo_r, Wo_l, Wf, Wu, Wc, Wo, bf, bu, bc, bo
         self.variables.append(W)
         self.variables.append(b)

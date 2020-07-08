@@ -32,10 +32,10 @@ class Conv2D(Layer):
     def initial_params(self, input_shape: Tuple = None):
         if input_shape is not None:
             self.input_shape = input_shape
-        w = Variable(self.kernel_initializer((self.out_channels, self.input_shape[0], self.kernel_size[0],
-                                              self.kernel_size[1])), name='variable')
+        w = self.kernel_initializer((self.out_channels, self.input_shape[0], self.kernel_size[0],
+                                              self.kernel_size[1]), name='xs_variable')
         if self.use_bias:
-            b = Variable(self.bias_initializer((1, self.out_channels)), name='variable')
+            b = self.bias_initializer((1, self.out_channels), name='xs_variable')
         else:
             b = None
         self.variables.append(w)

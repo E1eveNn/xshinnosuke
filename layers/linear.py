@@ -74,9 +74,9 @@ class Dense(Layer):
     def initial_params(self, input_shape=None):
         if input_shape is not None:
             self.input_shape = input_shape
-        w = Variable(self.kernel_initializer(self.input_shape + (self.out_features, )), name='variable')
+        w = self.kernel_initializer(self.input_shape + (self.out_features, ), name='xs_variable')
         if self.use_bias:
-            b = Variable(self.bias_initializer((1, self.out_features)), name='variable')
+            b = self.bias_initializer((1, self.out_features), name='xs_variable')
         else:
             b = None
         self.variables.append(w)

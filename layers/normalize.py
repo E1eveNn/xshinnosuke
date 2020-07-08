@@ -54,8 +54,8 @@ class BatchNormalization(Layer):
             self.input_shape = input_shape
         assert len(self.input_shape) >= 1
         n_in = self.input_shape[self.axis - 1]
-        gamma = Variable(self.gamma_initializer(n_in))
-        beta = Variable(self.beta_initializer(n_in))
+        gamma = self.gamma_initializer(n_in, name='xs_variable')
+        beta = self.beta_initializer(n_in, name='xs_variable')
         self.variables.append(gamma)
         self.variables.append(beta)
         self.moving_mean = self.moving_mean_initializer(n_in)
@@ -93,8 +93,8 @@ class LayerNormalization(Layer):
         super(LayerNormalization, self).__init__()
 
     def initial_params(self, input_shape=None):
-        gamma = Variable(self.gamma_initializer(self.input_shape))
-        beta = Variable(self.beta_initializer(self.input_shape))
+        gamma = self.gamma_initializer(self.input_shape, name='xs_variable')
+        beta = self.beta_initializer(self.input_shape, name='xs_variable')
         self.variables.append(gamma)
         self.variables.append(beta)
 
@@ -164,8 +164,8 @@ class GroupNormalization(Layer):
     def initial_params(self, input_shape=None):
         c = self.input_shape[0]
         assert c % self.G == 0
-        gamma = Variable(self.gamma_initializer((1, c, 1, 1)))
-        beta = Variable(self.beta_initializer((1, c, 1, 1)))
+        gamma = self.gamma_initializer((1, c, 1, 1), name='xs_variable')
+        beta = self.beta_initializer((1, c, 1, 1), name='xs_variable')
         self.variables.append(gamma)
         self.variables.append(beta)
 

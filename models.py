@@ -34,7 +34,7 @@ class Module:
             for n in vertex.out_bounds:
                 if n not in seen:
                     for v in n.in_bounds:
-                        if v is not None and v.requires_grad and v.name == 'variable' and v not in self.trainable_variables:
+                        if v is not None and v.requires_grad and v.name == 'xs_variable' and v not in self.trainable_variables:
                             self.trainable_variables.append(v)
 
                     queue.append(n)

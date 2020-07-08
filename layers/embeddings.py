@@ -12,7 +12,7 @@ class Embedding(Layer):
         self.mask_zero = mask_zero
 
     def initial_params(self):
-        w = Variable(self.initializer((self.input_shape[-1], self.output_dim)), name='embedding_w')
+        w = self.initializer((self.input_shape[-1], self.output_dim), name='xs_variable')
         self.variables.append(w)
 
     def compute_output_shape(self, input_shape=None):
