@@ -1,0 +1,161 @@
+*{
+    margin: 0;
+    padding: 0;
+    font-family: "Microsoft Yahei";
+}
+a{
+    text-decoration: none;
+}
+body{
+    background-color: #faf8ef;
+}
+.container{
+    margin: 0 auto;
+}
+header{
+    width: 600px;
+    height: 180px;
+    text-align: center;
+    margin: 5px auto;
+}
+header h1{
+    color: #776e65;
+    font-size: 60px;
+}
+header p{
+    margin-bottom: 20px;
+    color: #ccc4da;
+    font-size:24px;
+}
+header div.title{
+    float: left;
+    width: 200px;
+}
+header div.btns{
+     float: left;
+    width: 400px;
+}
+header div.btns a{
+    font-size: 16px;
+    float: left;
+    color: #fff;
+    display: block;
+    width: 100px;
+    margin: 5px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    background-color: #ede0c8;
+}
+header div.btns a:hover{
+    background-color: #8f7666;
+}
+.grid{
+    overflow: hidden;
+    margin: 0 auto;
+    position: relative;
+    background-color: #bbada0;
+}
+.grid-cell{
+    border-radius: 10px;
+    width: 100px;
+    position: absolute;
+    height: 100px;
+    background-color: #cdc1b4;
+}
+.grid .number-cell{
+    transform: translate3d(0,0,0);
+    border-radius: 10px;
+    position: absolute;
+    font-size: 48px;
+    font-weight: bold;
+    text-align: center;
+    line-height: 100px;
+    transition: width 0.1s linear,height 0.1s linear,transform 0.15s ease;
+}
+div#hideFormPar{
+    display: none;
+}
+div#gameover{
+    width: 300px;
+    height: 200px;
+    border-radius: 20px;
+    background-color: #8f7a66;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-left: -150px;
+    margin-top: -100px;
+    display: none;
+}
+#gameover h1{
+    font-size: 32px;
+    text-align: center;
+    color: #fff;
+    margin: 30px 0;
+}
+#gameover a{
+    display: block;
+    font-family: sans-serif;
+    font-weight: bold;
+    color: #fff;
+    font-size: 28px;
+    text-align: center;
+}
+#gameover a:hover{
+    color: red;
+}
+#personal {
+    width: 300px;
+    height: 240px;
+    border-radius: 20px;
+    background-color: #8f7a66;
+    position: fixed;
+    top: 100px;
+    left: 50%;
+    margin-left: -150px;
+    display: none;
+    clear: both;
+}
+#personal h1{
+  font-size: 32px;
+  text-align: center;
+  color: #fff;
+   margin: 20px 0;
+}
+#personal label{
+    margin-top: 20px;
+    margin-left: 50px;
+    color: #fff;
+    font-size: 20px;
+    font-family: sans-serif;
+    display: block;
+    float: left;
+}
+#personal input{
+    margin-top: 20px;
+    display: block;
+    width: 150px;
+    float: left;
+    height: 20px;
+}
+#personal button{
+    text-align: center;
+    overflow: hidden;
+    display: block;
+    float: left;
+    margin-left: 120px;
+    margin-top: 30px;
+    width: 60px;
+    height: 30px;
+    background-color: #fff;
+    outline: none;
+    border: 5px solid #fff;
+    border-radius: 35%;
+    color: #8f7a66;
+}
+#personal button:hover{
+    font-weight: bold;
+    cursor: pointer;
+    color: #2f7a66;
+}
