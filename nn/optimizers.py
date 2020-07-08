@@ -11,7 +11,7 @@ class Optimizer:
 
     def zero_grad(self):
         for v in self.trainable_variables:
-            v.grad = np.zeros_like(v.data)
+            v.zero_grad()
 
     def step(self):
         self.iterations += 1

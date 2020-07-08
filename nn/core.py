@@ -120,35 +120,37 @@ class Node:
     def backward(self, gradients: GlobalGraph.np.ndarray = None):
         if self.grad_fn is None:
             raise ValueError('can not solve grad on %s' % self)
-        # 如果是标量，默认该标量梯度为1
-        if self.data.size == 1:
-            if self.grad is None:
-                self.grad = 1.
-            self.grad_fn(self)
-            if GlobalGraph.outputs is None:
-                GlobalGraph.outputs = self
-            if GlobalGraph.inputs is not None:
-                graph = GlobalGraph.build_graph()
-                GlobalGraph.inputs.retain_grad()
-                GlobalGraph.outputs.retain_grad()
-                for node in reversed(graph):
-                    if node.grad_fn is not None:
-                        node.grad_fn(node)
-                    if node.retain:
-                        continue
-                    del node.cache, node.data, node.grad, node.grad_fn, node.in_bounds, node.out_bounds, node.shape, \
-                        node.name, node.requires_grad
-                    del node
-                gc.collect()
-                # 这里反向传播计算完就把这个图销毁，在C++中就是释放内存,把GlobalGraph的inputs, outputs和graph的内存都释放掉，或者说重置参数
-                GlobalGraph.reset_graph()
-
-        # 如果不是标量，但是手动传入该tensor的梯度，也可以求导，但是一定要让传入的梯度shape和tensor的shape对上
-        elif gradients is not None:
+        if gradients is not None:
+            assert gradients.size == self.data.size and gradients.shape == self.data.shape
             self.grad = gradients
-            self.grad_fn(self)
         else:
-            raise ValueError('grad can be implicitly created only for scalar outputs')
+            # 如果是标量，默认该标量梯度为1
+            if self.data.size == 1:
+                if self.grad is None:
+                    self.grad = 1.
+            else:
+                raise ValueError('grad can be implicitly created only for scalar outputs')
+
+        self.grad_fn(self)
+        if GlobalGraph.outputs is None:
+            GlobalGraph.outputs = self
+        if GlobalGraph.inputs is not None:
+            graph = GlobalGraph.build_graph()
+            GlobalGraph.inputs.retain_grad()
+            GlobalGraph.outputs.retain_grad()
+            for node in reversed(graph):
+                if node.grad_fn is not None:
+                    node.grad_fn(node)
+                if node.retain:
+                    GlobalGraph.reset_node(node)
+                else:
+                    GlobalGraph.delete_node(node)
+            # 这里反向传播计算完就把这个图销毁，在C++中就是释放内存,把GlobalGraph的inputs, outputs和graph的内存都释放掉，或者说重置参数
+            GlobalGraph.reset_graph()
+            gc.collect()
+
+    def size(self, axis: int = None):
+        return self.data.shape if axis is None else self.data.shape[axis]
 
     def zero_grad(self):
         self.grad = np.zeros_like(self.data)

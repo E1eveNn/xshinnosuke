@@ -76,3 +76,13 @@ def reset_graph():
     inputs = None
     outputs = None
     graph = None
+
+
+def reset_node(node):
+    node.__init__(node.data)
+
+
+def delete_node(node):
+    del node.cache, node.data, node.grad, node.grad_fn, node.in_bounds, node.out_bounds, node.shape, \
+        node.name, node.requires_grad, node.retain
+    del node
