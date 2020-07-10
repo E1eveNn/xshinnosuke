@@ -287,13 +287,13 @@ class Node:
 
 
 class Variable(Node):
-    __dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32, 'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
-
     def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
                  out_bounds: Union[List, Tuple] = None,
                  name: str = None, requires_grad: bool = True, dtype: str = 'float64'):
         # Variable初始化时必须提供data值，data值可能传入的是一个int或者float，我们需要把它包装成numpy矩阵（cpp中就包装成我们选的矩阵库类型）
-        data = np.asarray(data, dtype=self.__dtype_dict[dtype])  # 数据类型用float64吧，float32也行
+        dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
+                      'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
+        data = np.asarray(data, dtype=dtype_dict[dtype])  # 数据类型用float64吧，float32也行
         Node.__init__(self,
                       in_bounds=in_bounds,
                       out_bounds=out_bounds,
@@ -312,15 +312,14 @@ class Variable(Node):
 
 
 class Constant(Node):
-    __dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
-                    'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
-
     def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
                  out_bounds: Union[List, Tuple] = None,
                  name: str = None, dtype: str = 'float64'):
         # Constant初始化时必须提供data值，并且一旦初始化就不可修改，Constant因为值不需要修改，也就没必要计算梯度，默认require_grads为False
         # !!!!!!!!!!!!!!!!注意Constant里的这个data要是const类型的，总之就是Constant的data一旦初始化后没办法被修改
-        data = np.asarray(data, dtype=self.__dtype_dict[dtype])
+        dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
+                      'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
+        data = np.asarray(data, dtype=dtype_dict[dtype])
         # 显示调用父类的初始化函数
         Node.__init__(self,
                       in_bounds=in_bounds,

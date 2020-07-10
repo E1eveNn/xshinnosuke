@@ -128,6 +128,8 @@ class Module:
         return history
 
     def evaluate(self, x: np.ndarray, y: np.ndarray, batch_size: int = None):
+        x = np.asarray(x)
+        y = np.asarray(y)
         self.eval()
         if batch_size is not None:
             assert type(batch_size) is int
@@ -143,8 +145,8 @@ class Module:
                 acc_list.append(metric[0])
                 loss_list.append(metric[1])
 
-            acc = np.mean(acc_list).tolist()
-            loss = np.mean(loss_list).tolist()
+            acc = np.array(acc_list).mean().tolist()
+            loss = np.array(loss_list).mean().tolist()
         else:
             x = Variable(x)
             y = Variable(y)
