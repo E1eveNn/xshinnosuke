@@ -3,11 +3,11 @@ from six.moves import urllib
 import os
 import platform
 import pickle
-import sys
 import time
 
 
 start_time = None
+file_dir_path = os.path.dirname(__file__)
 
 
 def format_size(bytes):
@@ -50,8 +50,10 @@ def load_pickle(f):
     raise ValueError("invalid python version: {}".format(version))
 
 
-def load_mnist(save_path='./data'):
+def load_mnist(save_path=None):
     mnist_url = 'http://deeplearning.net/data/mnist/mnist.pkl.gz'
+    if save_path is None:
+        save_path = os.path.join(file_dir_path, 'data')
     if not os.path.exists(save_path):
         os.mkdir(save_path)
     save_path = os.path.join(save_path, 'mnist.pkl.gz')

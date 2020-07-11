@@ -251,10 +251,17 @@ def Dropout2DBackward(outputs):
         inputs.grad += outputs.grad * outputs.cache['mask'] * outputs.cache['keep_prob']
 
 
-def Batchnorm2DBackward(outputs):
+def BatchnormBackward(outputs):
     inputs, gamma, beta = outputs.in_bounds
+    grad = outputs.grad
+    if gamma.requires_grad:
+        normalized_x = inputs.cache['normalized_x']
+        gamma.grad += np.sum(grad * normalized_x, axis=0)
+
+    if beta.requires_grad:
+        beta.grad += np.sum(grad, axis=0)
+
     if inputs.requires_grad:
-        grad = outputs.grad
         ndim = grad.ndim
         axis = inputs.cache['axis']
         xmu = inputs.cache['xmu']
@@ -269,12 +276,6 @@ def Batchnorm2DBackward(outputs):
         # (N*W*H,C) /(N,M)
         grad = grad.reshape(-1, inputs.data.shape[axis])
 
-        if gamma.requires_grad:
-            gamma.grad += np.sum(grad * normalized_x, axis=0)
-
-        if beta.requires_grad:
-            beta.grad += np.sum(grad, axis=0)
-
         N = normalized_x.shape[0]
         dnormalized_x = grad * gamma.data
         dvar = np.sum(np.power(- 1. / sqrtvar, 3) * xmu * dnormalized_x * 0.5, axis=0)
@@ -286,6 +287,70 @@ def Batchnorm2DBackward(outputs):
             # for instance,outputs:(N,W,H,C),self.axis=1,after swapaxes,outputs:(N,C,H,W)
             grad = np.swapaxes(grad, axis, -1)
 
+        inputs.grad += grad
+
+
+def LayernormBackward(outputs):
+    inputs, gamma, beta = outputs.in_bounds
+    grad = outputs.grad
+    if gamma.requires_grad:
+        normalized_x = inputs.cache['normalized_x']
+        gamma.grad += np.sum(grad * normalized_x, axis=0)
+    if beta.requires_grad:
+        beta.grad += np.sum(grad, axis=0)
+
+    if inputs.requires_grad:
+        xmu = inputs.cache['xmu']
+        sqrtvar = inputs.cache['sqrtvar']
+        normalized_x = inputs.cache['normalized_x']
+        shape_field = inputs.cache['shape_field']
+        std_inv = 1. / sqrtvar
+        N = reduce(lambda x, y: x * y, normalized_x.shape[1:])
+
+        dnormalized_x = grad * gamma.data
+        dvar = (-0.5) * np.sum(dnormalized_x * xmu, axis=shape_field, keepdims=True) * (
+                    std_inv ** 3)  # (m,1)=(m,c,h,w)*(m,c,h,w)*(m,1)
+
+        dmean = (-1.0) * np.sum(dnormalized_x * std_inv, axis=shape_field, keepdims=True) - 2.0 * dvar * np.mean(xmu,
+                                                                                                                 axis=shape_field, keepdims=True)
+
+        grad = dnormalized_x * std_inv + (2. / N) * dvar * xmu + (1. / N) * dmean
+
+        inputs.grad += grad
+
+
+def GroupnormBackward(outputs):
+    inputs, gamma, beta = outputs.in_bounds
+    grad = outputs.grad
+    if gamma.requires_grad:
+        x_norm = inputs.cache['x_norm']
+        gamma.grad += np.sum(grad * x_norm, axis=(0, 2, 3), keepdims=True)
+    if beta.requires_grad:
+        beta.grad += np.sum(grad, axis=(0, 2, 3), keepdims=True)
+
+    if inputs.requires_grad:
+        n, c, h, w = grad.shape
+        groups = inputs.cache['groups']
+        sqrtvar = inputs.cache['sqrtvar']
+        xgmu = inputs.cache['xgmu']
+        std_inv = 1. / sqrtvar
+        # dx_group_norm
+        dx_norm = grad * gamma.data  # (N,C,H,W)
+        dx_group_norm = np.reshape(dx_norm, (n, groups, c // groups, h, w))
+        # dvar
+        dvar = -0.5 * (std_inv ** 3) * np.sum(dx_group_norm * xgmu, axis=(2, 3, 4), keepdims=True)
+        # dmean
+        N_GROUP = c // groups * h * w
+        dmean1 = np.sum(dx_group_norm * -std_inv, axis=(2, 3, 4), keepdims=True)
+        dmean2_var = dvar * -2.0 / N_GROUP * np.sum(xgmu, axis=(2, 3, 4), keepdims=True)
+        dmean = dmean1 + dmean2_var
+        # dx_group
+        dx_group1 = dx_group_norm * std_inv
+        dx_group_var = dvar * 2.0 / N_GROUP * xgmu
+        dx_group_mean = dmean * 1.0 / N_GROUP
+        dx_group = dx_group1 + dx_group_var + dx_group_mean
+        # dx
+        grad = np.reshape(dx_group, (n, c, h, w))
         inputs.grad += grad
 
 
