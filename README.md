@@ -36,11 +36,15 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 2. [Static Graph with Functional Model](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
 
-   <img src="https://gss1.bdstatic.com/9vo3dSag_xI4khGkpoWK1HF6hhy/baike/w%3D268%3Bg%3D0/sign=625eaa79a864034f0fcdc50097f81e0c/8c1001e93901213f91ab2a7857e736d12e2e95fd.jpg" width="200px" height="200px">
+3. [Gobang](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/gobang/ui.py)
 
-   <img src="https://gss1.bdstatic.com/9vo3dSag_xI4khGkpoWK1HF6hhy/baike/w%3D268%3Bg%3D0/sign=625eaa79a864034f0fcdc50097f81e0c/8c1001e93901213f91ab2a7857e736d12e2e95fd.jpg" width="200px" height="200px">
+   <img src="https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/gobang/asset/demo.png" width="400px" height="400px">
 
-   
+4. [2048](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/_2048/ui.py)
+
+   <img src="https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/_2048/demo.png" width="400px" height="400px">
+
+5. [MNIST](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/mnist/train.py)
 
 ---
 
