@@ -1,6 +1,10 @@
+import warnings
+
+
 try:
     np = __import__('cupy')
 except ModuleNotFoundError:
+    warnings.warn('Looks like you\'re using Numpy, try to use Cupy to speed up instead!')
     np = __import__('numpy')
 
 inputs = None
