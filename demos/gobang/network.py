@@ -13,7 +13,7 @@ class CNN:
         self.net = Sequential(
             Reshape((1, 15, 15), input_shape=(225, )),
             Conv2D(out_channels=32, kernel_size=5, use_bias=True, padding=2, kernel_initializer='he_normal',
-                   bias_initializer=xshinnosuke.nn.Constant(0.1)),
+                   bias_initializer=xshinnosuke.nn.Matrix(0.1)),
             ReLU(inplace=True),
             MaxPooling2D(kernel_size=2),
             Conv2D(out_channels=64, kernel_size=5, use_bias=True, padding=2),

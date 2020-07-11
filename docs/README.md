@@ -1,3 +1,5 @@
+
+
 <img src="https://ss0.bdstatic.com/70cFvHSh_Q1YnxGkpoWK1HF6hhy/it/u=1784511497,119911411&fm=26&gp=0.jpg">
 
 
@@ -293,8 +295,9 @@ print(model)
 
 
 
-<div style="color: red" id="embed"><i>- Embedding(output_dim,embeddings_initializer='uniform', mask_zero=False, **kwargs)</i></div>
+<div style="color: red" id="embed"><i>- Embedding(input_dim, output_dim,embeddings_initializer='uniform', mask_zero=False, **kwargs)</i></div>
 
++ input_dim: the max size of vocabulary.
 + out_dim: after embedding dimension, for example, out_dim = E, input data (N, T) after embedding's shape is (N, T, E).
 + embeddings_initializer: embedding kernel initialize method. see details in <a href='#Initializers'>Initializers</a>
 + mask_zero: use masks.
@@ -304,7 +307,7 @@ from xshinnosuke.models import Sequential
 from xshinnosuke.layers import Embedding
 
 model = Sequential()
-model.add(Embedding(input_dim=5000, output_dim=200, input_length=30))
+model.add(Embedding(input_dim=5000, output_dim=200, input_shape=(30, )))
 model.compile(optimizer='sgd', loss='mse')
 print(model)
 ```
@@ -534,16 +537,16 @@ print(model)
 ## Objectives
 
 + *MeanSquaredError*
-  + loss = $$\frac{1}{2}(y - \hat y)^2$$
+  + loss = $\frac{1}{2}(y - \hat y)^2$
 + *MeanAbsoluteError*
-  + loss = $$|y - \hat y|$$
+  + loss = $|y - \hat y|$
 + *BinaryCrossEntropy*
-  + loss = $$-ylog\hat y -(1-y)log(1 - \hat y)$$
+  + loss = $-ylog\hat y -(1-y)log(1 - \hat y)$
 + *SparseCrossEntropy*
-  + loss = $$-\sum \limits_{c=1}^C y_clog\hat y_c$$
+  + loss = $-\sum \limits_{c=1}^C y_clog\hat y_c$
   + $y_c$ should be one-hot vector.
 + *CrossEntropy*
-  + loss = $$-\sum \limits_{c=1}^C y_clog\hat y_c$$
+  + loss = $-\sum \limits_{c=1}^C y_clog\hat y_c$
   + $y_c$ can not be ont-hot vector.
 
 <h2 id="Activations">Activations</h2>

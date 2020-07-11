@@ -3,12 +3,14 @@ from flask import jsonify
 from flask import render_template
 from flask import request
 import numpy as np
-from model import CNN
+from .model import CNN
+import os
 
 
 app = Flask(__name__)
 net = CNN()
 pre_arrs = None
+file_dir_path = os.path.dirname(__file__)
 
 
 @app.route("/")
@@ -23,11 +25,11 @@ def move():
     h = message['height']
     w = message['width']
     arrs = message['array'][1:-1]
-    with open(f'train_{h}_{w}.txt', 'a') as f1:
+    with open(f'{file_dir_path}/train_{h}_{w}.txt', 'a') as f1:
         f1.write(arrs)
         f1.write('\n')
 
-    with open(f'label_{h}_{w}.txt', 'a') as f1:
+    with open(f'{file_dir_path}/label_{h}_{w}.txt', 'a') as f1:
         f1.write(key)
         f1.write('\n')
 
@@ -41,12 +43,12 @@ def train():
     w = int(message['width'])
     x = []
     y = []
-    with open(f'train_{h}_{w}.txt', 'r') as f1:
+    with open(f'{file_dir_path}/train_{h}_{w}.txt', 'r') as f1:
         for line in f1.readlines():
             line = list(map(int, line.strip().split(',')))
             x.append(line)
 
-    with open(f'label_{h}_{w}.txt', 'r') as f2:
+    with open(f'{file_dir_path}/label_{h}_{w}.txt', 'r') as f2:
         for target in f2.readlines():
             y.append(int(target))
 

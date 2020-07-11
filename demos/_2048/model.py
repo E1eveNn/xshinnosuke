@@ -4,6 +4,7 @@ from xshinnosuke.nn.optimizers import Adam
 from xshinnosuke.nn import Variable, CrossEntropy
 from xshinnosuke.utils import DataSet, DataLoader
 import cupy
+import os
 
 
 class CNN(Module):
@@ -11,8 +12,10 @@ class CNN(Module):
         super().__init__()
         self.mean = None
         self.std = None
+        self.height = None
+        self.width = None
         self.epochs = 50
-        self.embed = Embedding(output_dim=1, input_shape=(15,))
+        self.embed = Embedding(input_dim=15, output_dim=1)
         self.conv1 = Conv2D(32, kernel_size=3, use_bias=True, padding=1, activation='relu')
         self.conv2 = Conv2D(64, kernel_size=3, use_bias=True, padding=1, activation='relu')
         self.conv3 = Conv2D(128, kernel_size=3, use_bias=True, padding=1, activation='relu')
@@ -25,14 +28,14 @@ class CNN(Module):
         self.height = height
         self.width = width
         self.train()
-        x, y = self.preprocess_data(x, y, height, width)
+        x, y = self.preprocess_data(x, y)
         train_dataset = DataSet(x, y)
         train_loader = DataLoader(train_dataset, batch_size=100, shuffle=True)
         optimizer = Adam(self.parameters())
         criterion = CrossEntropy()
         for epoch in range(self.epochs):
             for xs, ys in train_loader:
-                xs = Variable(xs, dtype=cupy.int)
+                xs = Variable(xs, dtype='int')
                 ys = Variable(ys)
                 optimizer.zero_grad()
                 pred = self(xs)
@@ -40,24 +43,25 @@ class CNN(Module):
                 loss.backward()
                 optimizer.step()
                 print(f'epoch: {epoch} loss: {loss.data}')
-        self.save('./model')
+        save_path = os.path.join(os.path.dirname(__file__), 'model')
+        self.save(save_path)
 
     def prediction(self, x, height, width):
         self.height = height
         self.width = width
-        self.load('./model')
+        model_path = os.path.join(os.path.dirname(__file__), 'model')
+        self.load(model_path)
         x = cupy.array(x)
         x = self.convert_x(x)
-        x = Variable(x, dtype=cupy.int)
+        x = Variable(x, dtype='int')
         out = self.predict(x)
         return cupy.argmax(out.data, 1).tolist()
 
-    def preprocess_data(self, x, y, height, width):
+    def preprocess_data(self, x, y):
         x = cupy.array(x)
         y = cupy.array(y)
         x = self.convert_x(x)
-        y = y[:, None]
-        return x, y
+        return x[None, :], y[:, None]
 
     def convert_x(self, x):
         for i in range(1, 15):

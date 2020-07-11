@@ -33,7 +33,14 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 **Here are two styles of xshinnosuke written resnet18~**
 
 1. [Dynamic Graph with Module](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_dynamic_graph.ipynb)
+
 2. [Static Graph with Functional Model](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
+
+   <img src="https://gss1.bdstatic.com/9vo3dSag_xI4khGkpoWK1HF6hhy/baike/w%3D268%3Bg%3D0/sign=625eaa79a864034f0fcdc50097f81e0c/8c1001e93901213f91ab2a7857e736d12e2e95fd.jpg" width="200px" height="200px">
+
+   <img src="https://gss1.bdstatic.com/9vo3dSag_xI4khGkpoWK1HF6hhy/baike/w%3D268%3Bg%3D0/sign=625eaa79a864034f0fcdc50097f81e0c/8c1001e93901213f91ab2a7857e736d12e2e95fd.jpg" width="200px" height="200px">
+
+   
 
 ---
 
@@ -132,7 +139,7 @@ model.fit(trainX, trainy, batch_size=256, epochs=80)
 
 Pass inputs and outputs layer to `Model()`, then **compile** and **fit** model as `Sequential`model.
 
-### 2. Dynamic Style
+### 2. Dynamic Graph
 
 First design your own network, make sure your network is inherited from **Module** and *override* the `__init__()` and `forward()` function:
 
