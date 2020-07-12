@@ -254,8 +254,7 @@ class Sequential(Module):
                 if v is not None and v.requires_grad and v not in self.trainable_variables:
                     self.trainable_variables.append(v)
         self.loss = get_objective(loss)
-        self.optimizer = get_optimizer(optimizer, **kwargs)
-        self.optimizer.trainable_variables = self.trainable_variables
+        self.optimizer = get_optimizer(optimizer, trainable_variables=self.trainable_variables, **kwargs)
 
     def forward(self, x):
         for layer in self.graph:

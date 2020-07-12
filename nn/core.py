@@ -381,7 +381,6 @@ class Layer:
         self.shape = self.compute_output_shape(self.input_shape)
         if inbound is not None:
             self.in_bounds.append(inbound)
-            self.input_shape = inbound.shape
             inbound.out_bounds.append(self)
 
     # 初始化本层参数，由子类单独实现
@@ -414,9 +413,10 @@ class Layer:
             initialize_ops_grad(*self.variables)
 
     def backward(self, gradients: GlobalGraph.np.ndarray = None):
-        for inbound in self.in_bounds:
-            if inbound.data.requires_grad:
-                inbound.data.grad += gradients
+        # for inbound in self.in_bounds:
+        #     if inbound.data.requires_grad:
+        #         inbound.data.grad += gradients
+        raise NotImplementedError
 
 
 # 加法

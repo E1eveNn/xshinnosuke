@@ -52,7 +52,6 @@ class Dense(Layer):
         self.bias_initializer = get_initializer(bias_initializer)
         self.activation = get_activator(activation) if activation is not None else None
         self.kernel_regularizer = kernel_regularizer
-        self.timedist_grad = None
         super(Dense, self).__init__(**kwargs)
 
     def __call__(self, inbound):
