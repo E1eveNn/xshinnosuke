@@ -285,6 +285,9 @@ class Node:
         outputs = Variable(in_bounds=[self], data=np.argmax(self.data, axis=axis))
         return outputs
 
+    def numel(self):
+        return self.data.size
+
 
 class Variable(Node):
     def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
@@ -370,6 +373,9 @@ class Layer:
         self.input_shape = inbound.shape
         inbound.out_bounds.append(self)
         return self
+
+    def __rshift__(self, other):
+        return other.__call__(self)
 
     def connect(self, inbound=None):
         # inbound只能是一个Layer
