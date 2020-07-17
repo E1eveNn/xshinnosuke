@@ -38,5 +38,5 @@ def col2im(inputs_shape: tuple, pad_size: int, kernel_h: int, kernel_w: int, str
 def initialize_ops_grad(*ops):
     # 初始化梯度
     for op in ops:
-        if op is not None and op.requires_grad:
+        if op is not None and op.grad is None and op.requires_grad:
             op.zero_grad()

@@ -12,8 +12,8 @@ class Objective:
         self.grad_fn = None
 
     def __call__(self, y_pred: Variable, y_true: Variable):
-        if GlobalGraph.outputs is None:
-            GlobalGraph.outputs = y_pred
+        # if GlobalGraph.outputs is None:
+        #     GlobalGraph.outputs = y_pred
 
         return self.forward(y_pred, y_true)
 
@@ -120,6 +120,7 @@ class CrossEntropy(Objective):
         y_flat = y_true.data.reshape(to_sum_dim)
         loss_val = - GlobalGraph.np.sum(GlobalGraph.np.log(probs[GlobalGraph.np.arange(to_sum_dim), y_flat])) / n
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
+        y_pred.out_bounds.append(loss)
         loss.grad_fn = self.grad_fn
         return loss
 

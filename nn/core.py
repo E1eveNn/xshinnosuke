@@ -135,7 +135,7 @@ class Node:
             else:
                 raise ValueError('grad can be implicitly created only for scalar outputs')
 
-        self.grad_fn(self)
+        # self.grad_fn(self)
         if GlobalGraph.outputs is None:
             GlobalGraph.outputs = self
         if GlobalGraph.inputs is not None:
@@ -313,10 +313,14 @@ class Variable(Node):
                       requires_grad=requires_grad)
 
     def __getitem__(self, item):
-        ret = Variable(data=self.data[item])
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
+        ret = Variable(data=self.data[item], in_bounds=[self, ])
         if self.grad is None:
             self.zero_grad()
         ret.grad = self.grad[item]
+        self.out_bounds.append(ret)
+        ret.grad_fn = SliceBackward
         return ret
 
     def __setitem__(self, key, value):
@@ -325,6 +329,10 @@ class Variable(Node):
             if self.grad is None:
                 self.zero_grad()
             self.grad[key] = value.grad
+        self.cache[key] = value
+        value.out_bounds.append(self)
+        # self.in_bounds.append(value)
+        self.grad_fn = CopySlicesBackward
 
 
 class Constant(Node):
@@ -432,10 +440,10 @@ class Layer:
             initialize_ops_grad(*self.variables)
 
     def backward(self, gradients: GlobalGraph.np.ndarray = None):
-        # for inbound in self.in_bounds:
-        #     if inbound.data.requires_grad:
-        #         inbound.data.grad += gradients
-        raise NotImplementedError
+        for inbound in self.in_bounds:
+            if inbound.data.requires_grad:
+                inbound.data.grad += gradients
+        # raise NotImplementedError
 
 
 # 加法
@@ -481,16 +489,25 @@ def mul(x: Variable, y: Variable) -> Variable:
 
     # 列举所有做点乘的情况, 1.两个标量， 2.两个矩阵的shape一样。
     # 有一种特殊情况，两个矩阵的shape虽然不一样，但还是可以通过broadcast机制做点乘，比如(1, 3) * (3, 3) = (3, 3)，但是也可以理解为矩阵乘 = (1, 3)，这种情况下，我们默认为矩阵乘。
-
-    if len(x.shape) == 1 and len(y.shape) == 1 or x.shape[-1] != y.shape[0]:
+    if isinstance(y, int) or isinstance(y, float):
+        y = Variable(y, requires_grad=False)
+    outputs = None
+    if len(x.shape) == 1 or len(y.shape) == 1:
+        # 点乘
+        outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
+        outputs.grad_fn = MultiplyBackward
+    elif len(x.shape) == len(y.shape):
+        for s1, s2 in zip(x.shape, y.shape):
+            if s1 != s2 and s1 != 1 and s2 != 1:
+                # 矩阵乘
+                outputs = Variable(in_bounds=[x, y], data=np.dot(x.data, y.data), requires_grad=True)
+                outputs.grad_fn = MatmulBackward
+                break
         # 点乘
         outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
         outputs.grad_fn = MultiplyBackward
     else:
-        # 矩阵乘
-        outputs = Variable(in_bounds=[x, y], data=np.dot(x.data, y.data), requires_grad=True)
-        outputs.grad_fn = MatmulBackward
-
+        raise ValueError('can\'t peroform either multiply nor matmul between {} and {}'.format(x, y))
     initialize_ops_grad(x, y)
     x.out_bounds.append(outputs)
     y.out_bounds.append(outputs)

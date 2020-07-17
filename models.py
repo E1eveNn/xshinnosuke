@@ -19,6 +19,7 @@ class Module:
 
     def __call__(self, x: Variable, *args, **kwargs):
         out = self.forward(x)
+        out.retain_grad()
         self.__add_trainable_variables(x)
         return out
 
@@ -34,8 +35,7 @@ class Module:
             for n in vertex.out_bounds:
                 if n not in seen:
                     for v in n.in_bounds:
-                        if v is not None and v.requires_grad and v.name == 'xs_variable' and v not in \
-                                self.trainable_variables:
+                        if v is not None and v.requires_grad and v.name == 'xs_variable' and v not in self.trainable_variables:
                             self.trainable_variables.append(v)
 
                     queue.append(n)
@@ -177,7 +177,7 @@ class Module:
         raise NotImplemented
 
     def backward(self, loss: Variable):
-        loss.backward()
+        loss.grad_fn(loss)
         for layer in reversed(self.graph):
             layer.backward()
 
@@ -203,6 +203,8 @@ class Module:
         print('Layer(type)'.ljust(25), 'Output Shape'.ljust(20), 'Param'.ljust(10), 'Connected to'.ljust(15))
         print('#' * bar_nums)
         total_params = 0
+        if self.graph is None:
+            raise ValueError('Please compile Model!')
         for layer in self.graph:
             layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
             params = layer.params_count()
@@ -255,7 +257,8 @@ class Sequential(Module):
                 if v is not None and v.requires_grad and v not in self.trainable_variables:
                     self.trainable_variables.append(v)
         self.loss = get_objective(loss)
-        self.optimizer = get_optimizer(optimizer, trainable_variables=self.trainable_variables, **kwargs)
+        self.optimizer = get_optimizer(optimizer, **kwargs)
+        self.optimizer.trainable_variables = self.trainable_variables
 
     def forward(self, x):
         for layer in self.graph:
@@ -297,7 +300,8 @@ class Model(Module):
                 if v is not None and v.requires_grad and v not in self.trainable_variables:
                     self.trainable_variables.append(v)
         self.loss = get_objective(loss)
-        self.optimizer = get_optimizer(optimizer, trainable_variables=self.trainable_variables, **kwargs)
+        self.optimizer = get_optimizer(optimizer, **kwargs)
+        self.optimizer.trainable_variables = self.trainable_variables
 
     def forward(self, x: Variable):
         self.inputs.input_data = x

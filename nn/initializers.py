@@ -162,6 +162,10 @@ class RandInt(Initializer):
         return Variable(np.random.randint(low=low, high=high, size=shape), name=name)
 
 
+def matrix(*shape, value=0., **kwargs):
+    return Matrix(value=value)(shape, **kwargs)
+
+
 def ones(*shape, **kwargs):
     return Ones()(shape, **kwargs)
 
