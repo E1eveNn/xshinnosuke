@@ -190,6 +190,10 @@ def randint(low, high=None, shape=None, **kwargs):
     return RandInt()(low, high, shape, **kwargs)
 
 
+def seed(seeds=None):
+    np.random.seed(seeds)
+
+
 def get_initializer(initializer):
     if initializer.__class__.__name__ == 'str':
         initializer = initializer.lower()

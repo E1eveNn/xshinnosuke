@@ -117,6 +117,10 @@ class Node:
         initialize_ops_grad(self)
         return outputs
 
+    # 矩阵乘
+    def __matmul__(self, other):
+        return self.matmul(other)
+
     def backward(self, gradients: GlobalGraph.np.ndarray = None):
         if self.grad_fn is None:
             raise ValueError('can not solve grad on %s' % self)
@@ -175,6 +179,9 @@ class Node:
         self.out_bounds.append(outputs)
         other.out_bounds.append(outputs)
         return outputs
+
+    def dot(self, other):
+        return self.matmul(other)
 
     # 转置
     def t(self):
@@ -307,11 +314,17 @@ class Variable(Node):
 
     def __getitem__(self, item):
         ret = Variable(data=self.data[item])
+        if self.grad is None:
+            self.zero_grad()
+        ret.grad = self.grad[item]
         return ret
 
     def __setitem__(self, key, value):
         self.data[key] = value.data
-        self.in_bounds.append(value)
+        if value.grad is not None:
+            if self.grad is None:
+                self.zero_grad()
+            self.grad[key] = value.grad
 
 
 class Constant(Node):
