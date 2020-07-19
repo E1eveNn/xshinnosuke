@@ -84,7 +84,7 @@ def MeanBackward(outputs):
     if inputs.requires_grad:
         mean_nums = inputs.data.size / outputs.data.size
         if outputs.data.ndim < inputs.data.ndim:
-            axis = inputs.cache['axis']
+            axis = outputs.cache['axis']
             if axis is not None:
                 grad = np.expand_dims(grad, axis)
         inputs.grad += np.ones_like(inputs.data) * grad / mean_nums
@@ -391,9 +391,13 @@ def CrossEntropyBackward(outputs):
 
 
 def CopySlicesBackward(outputs):
-    for pos, slice in outputs.cache.items():
-        slice.grad = outputs.grad[pos]
+    for pos, slices in outputs.cache.items():
+        if slices.requires_grad:
+            slices.grad += outputs.grad[pos]
 
 
-def SliceBackward(outputs):
-    pass
+def SlicesBackward(outputs):
+    inputs, = outputs.in_bounds
+    if inputs.requires_grad:
+        pos = outputs.cache['pos']
+        inputs.grad[pos] += outputs.grad

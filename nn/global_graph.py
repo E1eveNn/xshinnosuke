@@ -1,10 +1,6 @@
-import warnings
-
-
 try:
     np = __import__('cupy')
 except ModuleNotFoundError:
-    warnings.warn('Looks like you\'re using Numpy, try to use Cupy to speed up instead!')
     np = __import__('numpy')
 
 inputs = None
@@ -83,7 +79,11 @@ def reset_graph():
 
 
 def reset_node(node):
-    node.__init__(node.data)
+    del node.in_bounds, node.out_bounds, node.cache
+    node.in_bounds = []
+    node.out_bounds = []
+    node.cache = {}
+    # node.__init__(node.data)
 
 
 def delete_node(node):

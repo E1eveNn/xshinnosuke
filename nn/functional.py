@@ -75,7 +75,7 @@ def embedding(inputs: Variable, weight: Variable):
     return outputs
 
 
-def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tuple = 1, padding: int = 0):
+def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tuple = (1, 1), padding: int = 0):
     # before pad size
     batch_nums, n_c_prev, n_h_prev, n_w_prev = inputs.data.shape
     # pad

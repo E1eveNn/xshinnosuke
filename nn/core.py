@@ -219,8 +219,8 @@ class Node:
             mean_value = np.mean(self.data, keepdims=keepdims)
         else:
             mean_value = np.mean(self.data, axis=axis, keepdims=keepdims)
-        self.cache['axis'] = axis
         outputs = Variable(in_bounds=[self], data=mean_value)
+        outputs.cache['axis'] = axis
         # 绑定反向求梯度的函数
         outputs.grad_fn = MeanBackward
         initialize_ops_grad(self)
@@ -313,26 +313,10 @@ class Variable(Node):
                       requires_grad=requires_grad)
 
     def __getitem__(self, item):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
-        ret = Variable(data=self.data[item], in_bounds=[self, ])
-        if self.grad is None:
-            self.zero_grad()
-        ret.grad = self.grad[item]
-        self.out_bounds.append(ret)
-        ret.grad_fn = SliceBackward
-        return ret
+        return slices(self, item)
 
     def __setitem__(self, key, value):
-        self.data[key] = value.data
-        if value.grad is not None:
-            if self.grad is None:
-                self.zero_grad()
-            self.grad[key] = value.grad
-        self.cache[key] = value
-        value.out_bounds.append(self)
-        # self.in_bounds.append(value)
-        self.grad_fn = CopySlicesBackward
+        copySlices(self, key, value)
 
 
 class Constant(Node):
@@ -512,3 +496,23 @@ def mul(x: Variable, y: Variable) -> Variable:
     x.out_bounds.append(outputs)
     y.out_bounds.append(outputs)
     return outputs
+
+
+def slices(x, item):
+    if GlobalGraph.inputs is None:
+        GlobalGraph.inputs = x
+    ret = Variable(data=x.data[item], in_bounds=[x, ])
+    x.out_bounds.append(ret)
+    ret.cache['pos'] = item
+    initialize_ops_grad(x)
+    ret.grad_fn = SlicesBackward
+    return ret
+
+
+def copySlices(x, pos, value: Variable):
+    x.data[pos] = value.data
+    value.out_bounds.append(x)
+    x.in_bounds.append(value)
+    x.cache[pos] = value
+    initialize_ops_grad(value)
+    x.grad_fn = CopySlicesBackward

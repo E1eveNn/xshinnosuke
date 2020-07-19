@@ -40,6 +40,7 @@ class MeanSquaredError(Objective):
     def forward(self, y_pred: Variable, y_true: Variable):
         loss_val = 0.5 * GlobalGraph.np.sum(GlobalGraph.np.power(y_pred.data - y_true.data, 2)) / y_pred.shape[0]
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
+        y_pred.out_bounds.append(loss)
         loss.grad_fn = self.grad_fn
         return loss
 
@@ -55,6 +56,7 @@ class MeanAbsoluteError(Objective):
     def forward(self, y_pred: Variable, y_true: Variable):
         loss_val = GlobalGraph.np.sum(GlobalGraph.np.absolute(y_pred.data - y_true.data)) / y_pred.data.shape[0]
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
+        y_pred.out_bounds.append(loss)
         loss.grad_fn = self.grad_fn
         return loss
 
@@ -72,6 +74,7 @@ class BinaryCrossEntropy(Objective):
         loss_val = -GlobalGraph.np.multiply(y_true.data, GlobalGraph.np.log(y_pred.data)) - GlobalGraph.np.multiply(1 - y_true.data, GlobalGraph.np.log(1 - y_pred.data))
         loss_val = GlobalGraph.np.sum(loss_val) / y_pred.data.shape[0]
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
+        y_pred.out_bounds.append(loss)
         loss.grad_fn = self.grad_fn
         return loss
 
@@ -94,6 +97,7 @@ class SparseCrossEntropy(Objective):
         avg = GlobalGraph.np.prod(GlobalGraph.np.asarray(y_pred.shape[:-1]))
         loss_val = -GlobalGraph.np.sum(GlobalGraph.np.multiply(y_true.data, GlobalGraph.np.log(y_pred.data))) / avg
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
+        y_pred.out_bounds.append(loss)
         loss.grad_fn = self.grad_fn
         return loss
 
