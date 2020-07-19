@@ -1,5 +1,6 @@
 from ..nn.global_graph import np
-from typing import List, Tuple
+from typing import List
+from ..nn.core import Variable
 
 
 class ProgressBar:
@@ -145,7 +146,10 @@ class DataLoader:
             self.mini_batches = self.make_batches(self.dataset.datas, self.batch_size, self.seed, self.shuffle)
             self.sp = -1
             raise StopIteration
-        return self.mini_batches[self.sp]
+        batches = []
+        for data in self.mini_batches[self.sp]:
+            batches.append(Variable(data))
+        return batches
 
     def make_batches(self, datas: List[np.ndarray], batch_size: int, seed: int, shuffle: bool = False):
         if batch_size is None:

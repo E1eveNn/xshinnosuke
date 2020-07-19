@@ -90,6 +90,18 @@ def MeanBackward(outputs):
         inputs.grad += np.ones_like(inputs.data) * grad / mean_nums
 
 
+def MaxBackward(outputs):
+    inputs, = outputs.in_bounds
+    if inputs.requires_grad:
+        grad = outputs.grad
+        if outputs.data.ndim < inputs.data.ndim:
+            axis = outputs.cache['axis']
+            if axis is not None:
+                grad = np.expand_dims(grad, axis)
+        mask = (inputs.data == np.max(inputs.data))
+        inputs.grad += mask * grad
+
+
 def AbsBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:

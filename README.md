@@ -30,21 +30,23 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 ## Getting started
 
-**Here are two styles of xshinnosuke written resnet18~**
+**Here are some demos~**
 
-1. [Dynamic Graph with Module](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_dynamic_graph.ipynb)
+1. [ResNet18 with Dynamic Graph](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_dynamic_graph.ipynb)
 
-2. [Static Graph with Functional Model](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
+2. [ResNet18 with Static Graph](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
 
-3. [Gobang](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/gobang/ui.py)
+3. [Autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb)
+
+4. [Gobang](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/gobang/ui.py)
 
    <img src="https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/gobang/asset/demo.png" width="400px" height="400px">
 
-4. [2048](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/_2048/ui.py)
+5. [2048](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/_2048/ui.py)
 
    <img src="https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/_2048/demo.png" width="400px" height="400px">
 
-5. [MNIST](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/mnist/train.py)
+6. [MNIST](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/mnist/train.py)
 
 ---
 
@@ -111,7 +113,7 @@ model.load(model_path)
 Evaluate your model performance by `evaluate()`:
 
 ```python
-# testX and testy are Cupy ndarray
+# testX and testy are Cupy/Numpy ndarray
 accuracy, loss = model.evaluate(testX, testy, batch_size=128)
 ```
 
@@ -155,7 +157,7 @@ import xshinnosuke.nn.functional as F
 class MyNet(Module):
     def __init__(self):
         super().__init__()
-        self.conv1 = Conv2D(8, 3)
+        self.conv1 = Conv2D(out_channels=8, kernel_size=3)
         self.relu = ReLU(inplace=True)
         self.flat = Flatten()
         self.fc = Dense(10)
@@ -163,7 +165,7 @@ class MyNet(Module):
     def forward(self, x, *args):
         x = self.conv1(x)
         x = self.relu(x)
-        x = F.max_pool2d(x, 2)
+        x = F.max_pool2d(x, kernel_size=2)
         x = self.flat(x)
         x = self.fc(x)
         return x
@@ -174,7 +176,7 @@ Then manually set the training/ testing flow:
 ```python
 from xshinnosuke.nn.optimizers import SGD
 from xshinnosuke.utils import DataSet, DataLoader
-from xshinnosuke.nn import Variable, CrossEntropy
+from xshinnosuke.nn import CrossEntropy
 import cupy as np
 
 # random generate data
@@ -192,8 +194,6 @@ critetion = CrossEntropy()
 EPOCH = 5
 for epoch in range(EPOCH):
     for x, y in train_loader:
-        x = Variable(x)
-        y = Variable(y)
         optimizer.zero_grad()
         out = net(x)
         loss = critetion(out, y)
@@ -229,7 +229,7 @@ print('b grad:', b.grad)  # b grad: 270.0
 print('a grad:', a.grad)  # a grad: 270.0
 ```
 
-Here is an example of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb), which use `Variable` to implement a simple mlp. 
+Here are examples of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb). 
 
 ## Installation
 

@@ -286,7 +286,13 @@ class Node:
         return outputs
 
     def max(self, axis=None):
+        if GlobalGraph.inputs is None:
+            GlobalGraph.inputs = self
         outputs = Variable(in_bounds=[self], data=np.max(self.data, axis=axis))
+        outputs.cache['axis'] = axis
+        outputs.grad_fn = MaxBackward
+        initialize_ops_grad(self)
+        self.out_bounds.append(outputs)
         return outputs
 
     def argmax(self, axis=None):
