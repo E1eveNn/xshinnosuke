@@ -142,7 +142,7 @@ class Matrix(Initializer):
     def __call__(self, shape: Tuple, **kwargs):
         name = kwargs.pop('name', None)
         return Variable(np.ones(shape) * self.value, name=name)
-    
+
 
 class RandN(Initializer):
     def __call__(self, shape: Tuple, **kwargs):
@@ -194,6 +194,10 @@ def randint(low, high=None, shape=None, **kwargs):
     return RandInt()(low, high, shape, **kwargs)
 
 
+def tensor(data, **kwargs):
+    return Variable(data=data, **kwargs)
+
+
 def seed(seeds=None):
     np.random.seed(seeds)
 
@@ -217,7 +221,7 @@ def get_initializer(initializer):
             return LecunNormal()
         elif initializer in ['lecununiform', 'lecun_uniform']:
             return LecunUniform()
-        elif initializer =='orthogonal':
+        elif initializer == 'orthogonal':
             return Orthogonal()
         elif initializer in ['glorotnoraml', 'glorot_normal']:
             return GlorotNormal()

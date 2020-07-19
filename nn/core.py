@@ -110,11 +110,12 @@ class Node:
     def __pow__(self, power: int, modulo=None):
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
-        outputs = Variable(in_bounds=[self], data=np.power(self.data, power), requires_grad=True)
+        outputs = Variable(in_bounds=[self, ], data=np.power(self.data, power), requires_grad=True)
         # 绑定反向求梯度的函数
         outputs.grad_fn = PowBackward
-        self.cache['power'] = power
+        outputs.cache['power'] = power
         initialize_ops_grad(self)
+        self.out_bounds.append(outputs)
         return outputs
 
     # 矩阵乘
@@ -131,7 +132,7 @@ class Node:
             # 如果是标量，默认该标量梯度为1
             if self.data.size == 1:
                 if self.grad is None:
-                    self.grad = 1.
+                    self.grad = np.array(1.)
             else:
                 raise ValueError('grad can be implicitly created only for scalar outputs')
 
@@ -202,8 +203,8 @@ class Node:
             sum_value = np.sum(self.data, keepdims=keepdims)
         else:
             sum_value = np.sum(self.data, axis=axis, keepdims=keepdims)
-        self.cache['axis'] = axis
         outputs = Variable(in_bounds=[self], data=sum_value)
+        outputs.cache['axis'] = axis
         # 绑定反向求梯度的函数
         outputs.grad_fn = SumBackward
         initialize_ops_grad(self)
@@ -481,15 +482,19 @@ def mul(x: Variable, y: Variable) -> Variable:
         outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
         outputs.grad_fn = MultiplyBackward
     elif len(x.shape) == len(y.shape):
+        matmul_flag = False
         for s1, s2 in zip(x.shape, y.shape):
             if s1 != s2 and s1 != 1 and s2 != 1:
-                # 矩阵乘
-                outputs = Variable(in_bounds=[x, y], data=np.dot(x.data, y.data), requires_grad=True)
-                outputs.grad_fn = MatmulBackward
+                matmul_flag = True
                 break
-        # 点乘
-        outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
-        outputs.grad_fn = MultiplyBackward
+        if matmul_flag:
+            # 矩阵乘
+            outputs = Variable(in_bounds=[x, y], data=np.dot(x.data, y.data), requires_grad=True)
+            outputs.grad_fn = MatmulBackward
+        else:
+            # 点乘
+            outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
+            outputs.grad_fn = MultiplyBackward
     else:
         raise ValueError('can\'t peroform either multiply nor matmul between {} and {}'.format(x, y))
     initialize_ops_grad(x, y)

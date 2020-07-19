@@ -193,8 +193,8 @@ def dropout2d(inputs: Variable, keep_prob: float = 0.5, training: bool = True):
     return outputs
 
 
-def batchnorm_2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, epsilon: float, training: bool = True,
-                 momentum: float = 0.99, moving_mean: np.ndarray = None, moving_variance: np.ndarray = None):
+def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, epsilon: float = 1e-6,
+                training: bool = True, momentum: float = 0.99, moving_mean: np.ndarray = None, moving_variance: np.ndarray = None):
     if moving_mean is not None:
         inputs.cache['moving_mean'] = moving_mean
     if moving_variance is not None:
@@ -243,6 +243,57 @@ def batchnorm_2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, e
 
     outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta])
     outputs.grad_fn = Batchnorm2DBackward
+    initialize_ops_grad(inputs)
+    inputs.out_bounds.append(outputs)
+    return outputs
+
+
+def layernorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: bool = True, epsilon: float = 1e-10):
+    inputs_data = inputs.data
+    shape_field = tuple([i for i in range(1, inputs_data.ndim)])
+    # calc mean
+    mean = np.mean(inputs_data, axis=shape_field, keepdims=True)
+    # calc var
+    var = np.var(inputs_data, axis=shape_field, keepdims=True)
+    # x minus u
+    xmu = inputs_data - mean
+    sqrtvar = np.sqrt(var + epsilon)
+    normalized_x = xmu / sqrtvar
+    outputs = gamma.data * normalized_x + beta.data
+    if training:
+        inputs.cache['shape_field'] = shape_field
+        inputs.cache['xmu'] = xmu
+        inputs.cache['sqrtvar'] = sqrtvar
+        inputs.cache['normalized_x'] = normalized_x
+
+    outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta])
+    outputs.grad_fn = Layernorm2DBackward
+    initialize_ops_grad(inputs)
+    inputs.out_bounds.append(outputs)
+    return outputs
+
+
+def groupnorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: bool = True, epsilon: float = 1e-5,
+                groups: int = 16):
+    inputs_data = inputs.data
+    n, c, h, w = inputs_data.shape
+    shape_field = tuple([i for i in range(2, inputs_data.ndim)])
+    x_group = np.reshape(inputs_data, (n, groups, c // groups, h, w))
+    mean = np.mean(x_group, axis=shape_field, keepdims=True)
+    var = np.var(x_group, axis=shape_field, keepdims=True)
+    xgmu = x_group - mean
+    sqrtvar = np.sqrt(var + epsilon)
+    x_group_norm = xgmu / sqrtvar
+    x_norm = np.reshape(x_group_norm, (n, c, h, w))
+    outputs = gamma.data * x_norm + beta.data
+    if training:
+        inputs.cache['groups'] = groups
+        inputs.cache['xgmu'] = xgmu
+        inputs.cache['sqrtvar'] = sqrtvar
+        inputs.cache['x_norm'] = x_norm
+
+    outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta])
+    outputs.grad_fn = Layernorm2DBackward
     initialize_ops_grad(inputs)
     inputs.out_bounds.append(outputs)
     return outputs

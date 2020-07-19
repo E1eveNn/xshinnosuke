@@ -1,9 +1,7 @@
 from ..nn.core import Layer, Variable
-from ..nn.global_graph import np
-from functools import reduce
 from ..nn.initializers import get_initializer
-from ..nn.functional import dropout2d, batchnorm, layernorm, groupnorm
-from ..nn.grad_fn import Dropout2DBackward, BatchnormBackward, LayernormBackward, GroupnormBackward
+from ..nn.functional import dropout2d, batchnorm2d, layernorm2d, groupnorm2d
+from ..nn.grad_fn import Dropout2DBackward, Batchnorm2DBackward, Layernorm2DBackward, Groupnorm2DBackward
 
 
 class Dropout(Layer):
@@ -65,8 +63,8 @@ class BatchNormalization(Layer):
         if isinstance(inbound, Variable):
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = batchnorm(inbound, self.variables[0], self.variables[1], self.axis, self.epsilon, self.momentum,
-                               self.moving_mean, self.moving_variance)
+            output = batchnorm2d(inbound, self.variables[0], self.variables[1], self.axis, self.epsilon, True,
+                                 self.momentum, self.moving_mean, self.moving_variance)
             return output
         super().__call__(inbound)
         return self
@@ -75,13 +73,13 @@ class BatchNormalization(Layer):
         if x is not None:
             self.input_data = x
 
-        self.data = batchnorm(self.input_data, self.variables[0], self.variables[1], self.axis, self.epsilon,
-                              self.momentum, self.moving_mean, self.moving_variance, is_training)
+        self.data = batchnorm2d(self.input_data, self.variables[0], self.variables[1], self.axis, self.epsilon,
+                                is_training, self.momentum, self.moving_mean, self.moving_variance)
         self.connect_init(self.data, is_training)
         return self.data
 
     def backward(self, gradients=None):
-        BatchnormBackward(self.data)
+        Batchnorm2DBackward(self.data)
 
 
 class LayerNormalization(Layer):
@@ -103,7 +101,7 @@ class LayerNormalization(Layer):
         if isinstance(inbound, Variable):
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = layernorm(inbound, self.variables[0], self.variables[1], self.epsilon)
+            output = layernorm2d(inbound, self.variables[0], self.variables[1], True, self.epsilon)
             return output
         Layer.__call__(self, inbound)
         return self
@@ -112,12 +110,12 @@ class LayerNormalization(Layer):
         if x is not None:
             self.input_data = x
 
-        self.data = layernorm(self.input_data, self.variables[0], self.variables[1], self.epsilon, is_training)
+        self.data = layernorm2d(self.input_data, self.variables[0], self.variables[1], is_training, self.epsilon)
         self.connect_init(self.data, is_training)
         return self.data
 
     def backward(self, gradients=None):
-        LayernormBackward(self.data)
+        Layernorm2DBackward(self.data)
 
 
 class GroupNormalization(Layer):
@@ -142,7 +140,7 @@ class GroupNormalization(Layer):
         if isinstance(inbound, Variable):
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = groupnorm(inbound, self.variables[0], self.variables[1], self.epsilon, self.G)
+            output = groupnorm2d(inbound, self.variables[0], self.variables[1], True, self.epsilon, self.G)
             return output
         Layer.__call__(self, inbound)
         return self
@@ -151,9 +149,9 @@ class GroupNormalization(Layer):
         if x is not None:
             self.input_data = x
 
-        self.data = groupnorm(self.input_data, self.variables[0], self.variables[1], self.epsilon, self.G, is_training)
+        self.data = groupnorm2d(self.input_data, self.variables[0], self.variables[1], is_training, self.epsilon, self.G)
         self.connect_init(self.data, is_training)
         return self.data
 
     def backward(self, gradients=None):
-        GroupnormBackward(self)
+        Groupnorm2DBackward(self)
