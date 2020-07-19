@@ -79,11 +79,11 @@ def reset_graph():
 
 
 def reset_node(node):
-    del node.in_bounds, node.out_bounds, node.cache
-    node.in_bounds = []
-    node.out_bounds = []
-    node.cache = {}
-    # node.__init__(node.data)
+    retain = node.retain
+    grad = node.grad
+    node.__init__(node.data)
+    node.grad = grad
+    node.retain = retain
 
 
 def delete_node(node):
