@@ -1,14 +1,18 @@
+import warnings
+
+
 try:
     np = __import__('cupy')
 except ModuleNotFoundError:
     np = __import__('numpy')
+    warnings.warn('Looks like you\'re using Numpy, try to install Cupy to gain GPU acceleration!')
 
 inputs = None
 outputs = None
 graph = None
 
 
-def topological_sort(inputs, outputs):
+def topological_sort(ins, outs):
     """
     Sort generic nodes in topological order using Kahn's Algorithm.
     Returns a list of sorted nodes.
@@ -21,10 +25,9 @@ def topological_sort(inputs, outputs):
     }
 
     G = {}
-    graph = []
-    outputs = list([outputs])
-
-    layers = list([inputs])
+    sorted_graph = []
+    outs = list([outs])
+    layers = list([ins])
     while len(layers) > 0:
         n = layers.pop(0)
         if n not in G:
@@ -36,10 +39,10 @@ def topological_sort(inputs, outputs):
             G[m]['in'].add(n)
             layers.append(m)
 
-    S = set(list([inputs]))
+    S = set(list([ins]))
     while len(S) > 0:
         n = S.pop()
-        graph.append(n)
+        sorted_graph.append(n)
         if n.name is None:
             if n.__class__.__name__ in name_dict:
                 name_dict[n.__class__.__name__] += 1
@@ -49,7 +52,7 @@ def topological_sort(inputs, outputs):
                 n.name = simple_name_dict[n.__class__.__name__] + str(name_dict[n.__class__.__name__])
             else:
                 n.name = n.__class__.__name__.lower() + str(name_dict[n.__class__.__name__])
-        if n in outputs:
+        if n in outs:
             continue
         for m in n.out_bounds:
 
@@ -59,11 +62,13 @@ def topological_sort(inputs, outputs):
             if len(G[m]['in']) == 0:
                 S.add(m)
 
-    return graph
+    return sorted_graph
 
 
 def build_graph():
     global graph
+    global inputs
+    global outputs
     graph = topological_sort(inputs, outputs)
     return graph
 
@@ -81,7 +86,7 @@ def reset_graph():
 def reset_node(node):
     retain = node.retain
     grad = node.grad
-    node.__init__(node.data)
+    node.__init__(data=node.data, name=node.name)
     node.grad = grad
     node.retain = retain
 
