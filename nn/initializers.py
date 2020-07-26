@@ -28,8 +28,7 @@ class Uniform(Initializer):
         super(Uniform, self).__init__(seed)
 
     def __call__(self, shape, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.random.uniform(-self.scale, self.scale, size=shape), name=name)
+        return Variable(np.random.uniform(-self.scale, self.scale, size=shape), **kwargs)
 
 
 class LecunUniform(Initializer):
@@ -38,8 +37,7 @@ class LecunUniform(Initializer):
 
     def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        name = kwargs.pop('name', None)
-        return Uniform(np.sqrt(3. / fan_in))(shape, name=name)
+        return Uniform(np.sqrt(3. / fan_in))(shape, **kwargs)
 
 
 class GlorotUniform(Initializer):
@@ -48,8 +46,7 @@ class GlorotUniform(Initializer):
 
     def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        name = kwargs.pop('name', None)
-        return Uniform(np.sqrt(6. / (fan_in + fan_out)))(shape, name=name)
+        return Uniform(np.sqrt(6. / (fan_in + fan_out)))(shape, **kwargs)
 
 
 class HeUniform(Initializer):
@@ -58,8 +55,7 @@ class HeUniform(Initializer):
 
     def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        name = kwargs.pop('name', None)
-        return Uniform(np.sqrt(6. / fan_in))(shape, name=name)
+        return Uniform(np.sqrt(6. / fan_in))(shape, **kwargs)
 
 
 class Normal(Initializer):
@@ -69,8 +65,7 @@ class Normal(Initializer):
         super(Normal, self).__init__(seed)
 
     def __call__(self, shape, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.random.normal(loc=self.mean, scale=self.std, size=shape), name=name)
+        return Variable(np.random.normal(loc=self.mean, scale=self.std, size=shape), **kwargs)
 
 
 class LecunNormal(Initializer):
@@ -79,8 +74,7 @@ class LecunNormal(Initializer):
 
     def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        name = kwargs.pop('name', None)
-        return Normal(np.sqrt(1. / fan_in))(shape, name=name)
+        return Normal(np.sqrt(1. / fan_in))(shape, **kwargs)
 
 
 class GlorotNormal(Initializer):
@@ -89,8 +83,7 @@ class GlorotNormal(Initializer):
 
     def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        name = kwargs.pop('name', None)
-        return Normal(np.sqrt(2. / (fan_in + fan_out)))(shape, name=name)
+        return Normal(np.sqrt(2. / (fan_in + fan_out)))(shape, **kwargs)
 
 
 class HeNormal(Initializer):
@@ -99,8 +92,7 @@ class HeNormal(Initializer):
 
     def __call__(self, shape, **kwargs):
         fan_in, fan_out = self.decompose_size(shape)
-        name = kwargs.pop('name', None)
-        return Normal(np.sqrt(2. / fan_in))(shape, name=name)
+        return Normal(np.sqrt(2. / fan_in))(shape, **kwargs)
 
 
 class Orthogonal(Initializer):
@@ -113,8 +105,7 @@ class Orthogonal(Initializer):
     def __call__(self, shape, **kwargs):
         shape = np.array(shape)
         flat_shape = (shape[0].tolist(), np.prod(shape[1:]).tolist())
-        name = kwargs.pop('name', None)
-        a = Normal(1.)(flat_shape, name=name)
+        a = Normal(1.)(flat_shape, **kwargs)
         u, _, v = np.linalg.svd(a.data, full_matrices=False)
         q = u if u.shape == flat_shape else v
         q = q.reshape(shape.tolist())
@@ -124,14 +115,12 @@ class Orthogonal(Initializer):
 
 class Zeros(Initializer):
     def __call__(self, shape, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.zeros(shape), name=name)
+        return Variable(np.zeros(shape), **kwargs)
 
 
 class Ones(Initializer):
     def __call__(self, shape, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.ones(shape), name=name)
+        return Variable(np.ones(shape), **kwargs)
 
 
 class Matrix(Initializer):
@@ -140,62 +129,67 @@ class Matrix(Initializer):
         self.value = value
 
     def __call__(self, shape: Tuple, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.ones(shape) * self.value, name=name)
+        return Variable(np.ones(shape) * self.value, **kwargs)
 
 
 class RandN(Initializer):
     def __call__(self, shape: Tuple, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.random.randn(*shape), name=name)
+        return Variable(np.random.randn(*shape), **kwargs)
 
 
 class Rand(Initializer):
     def __call__(self, shape: Tuple, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.random.rand(*shape), name=name)
+        return Variable(np.random.rand(*shape), **kwargs)
 
 
 class RandInt(Initializer):
     def __call__(self, low, high=None, shape=None, **kwargs):
-        name = kwargs.pop('name', None)
-        return Variable(np.random.randint(low=low, high=high, size=shape), name=name)
+        return Variable(np.random.randint(low=low, high=high, size=shape), **kwargs)
 
 
 def matrix(*shape, value=0., **kwargs):
-    return Matrix(value=value)(shape, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', False)
+    return Matrix(value=value)(shape, requires_grad=requires_grad, **kwargs)
 
 
 def ones(*shape, **kwargs):
-    return Ones()(shape, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', False)
+    return Ones()(shape, requires_grad=requires_grad, **kwargs)
 
 
 def ones_like(a, **kwargs):
-    return np.ones_like(a, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', a.requires_grad)
+    return np.ones_like(a, requires_grad=requires_grad, **kwargs)
 
 
 def zeros(*shape, **kwargs):
-    return Zeros()(shape, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', False)
+    return Zeros()(shape, requires_grad=requires_grad, **kwargs)
 
 
 def zeros_like(a, **kwargs):
-    return np.zeros_like(a, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', a.requires_grad)
+    return np.zeros_like(a, requires_grad=requires_grad, **kwargs)
 
 
 def rand(*shape, **kwargs):
-    return Rand()(shape, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', False)
+    return Rand()(shape, requires_grad=requires_grad, **kwargs)
 
 
 def randn(*shape, **kwargs):
-    return RandN()(shape, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', False)
+    return RandN()(shape, requires_grad=requires_grad, **kwargs)
 
 
 def randint(low, high=None, shape=None, **kwargs):
-    return RandInt()(low, high, shape, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', False)
+    return RandInt()(low, high, shape, requires_grad=requires_grad, **kwargs)
 
 
 def tensor(data, **kwargs):
-    return Variable(data=data, **kwargs)
+    requires_grad = kwargs.pop('requires_grad', False)
+    return Variable(data=data, requires_grad=requires_grad, **kwargs)
 
 
 def seed(seeds=None):

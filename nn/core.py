@@ -162,7 +162,7 @@ class Node:
 
     # 把数据转换为长整型，返回一个Variable
     def long(self):
-        output = Variable(data=self.data, dtype=np.int64)
+        output = Variable(data=self.data, dtype=np.int64, requires_grad=self.requires_grad)
         return output
 
     # 方法名后面加一个_指在本身数据上直接修改，没有返回值
@@ -174,11 +174,12 @@ class Node:
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
         outputs_data = np.dot(self.data, other.data)
-        outputs = Variable(data=outputs_data, in_bounds=[self, other])
-        outputs.grad_fn = MatmulBackward
-        initialize_ops_grad(self, other)
-        self.out_bounds.append(outputs)
-        other.out_bounds.append(outputs)
+        outputs = Variable(data=outputs_data, in_bounds=[self, other], requires_grad=self.requires_grad or other.requires_grad)
+        if outputs.requires_grad:
+            outputs.grad_fn = MatmulBackward
+            initialize_ops_grad(self, other)
+            self.out_bounds.append(outputs)
+            other.out_bounds.append(outputs)
         return outputs
 
     def dot(self, other):
@@ -188,10 +189,11 @@ class Node:
     def t(self):
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
-        outputs = Variable(data=self.data.T, in_bounds=[self])
-        outputs.grad_fn = TransposeBackward
-        self.out_bounds.append(outputs)
-        initialize_ops_grad(self)
+        outputs = Variable(data=self.data.T, in_bounds=[self, ], requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            outputs.grad_fn = TransposeBackward
+            self.out_bounds.append(outputs)
+            initialize_ops_grad(self)
         return outputs
 
     # 求和
@@ -203,12 +205,13 @@ class Node:
             sum_value = np.sum(self.data, keepdims=keepdims)
         else:
             sum_value = np.sum(self.data, axis=axis, keepdims=keepdims)
-        outputs = Variable(in_bounds=[self], data=sum_value)
-        outputs.cache['axis'] = axis
-        # 绑定反向求梯度的函数
-        outputs.grad_fn = SumBackward
-        initialize_ops_grad(self)
-        self.out_bounds.append(outputs)
+        outputs = Variable(in_bounds=[self, ], data=sum_value, requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            outputs.cache['axis'] = axis
+            # 绑定反向求梯度的函数
+            outputs.grad_fn = SumBackward
+            initialize_ops_grad(self)
+            self.out_bounds.append(outputs)
         return outputs
 
     # 求均值
@@ -220,12 +223,13 @@ class Node:
             mean_value = np.mean(self.data, keepdims=keepdims)
         else:
             mean_value = np.mean(self.data, axis=axis, keepdims=keepdims)
-        outputs = Variable(in_bounds=[self], data=mean_value)
-        outputs.cache['axis'] = axis
-        # 绑定反向求梯度的函数
-        outputs.grad_fn = MeanBackward
-        initialize_ops_grad(self)
-        self.out_bounds.append(outputs)
+        outputs = Variable(in_bounds=[self, ], data=mean_value, requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            outputs.cache['axis'] = axis
+            # 绑定反向求梯度的函数
+            outputs.grad_fn = MeanBackward
+            initialize_ops_grad(self)
+            self.out_bounds.append(outputs)
         return outputs
 
     # 求绝对值
@@ -233,11 +237,12 @@ class Node:
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
 
-        outputs = Variable(in_bounds=[self], data=np.abs(self.data))
-        # 绑定反向求梯度的函数
-        outputs.grad_fn = AbsBackward
-        initialize_ops_grad(self)
-        self.out_bounds.append(outputs)
+        outputs = Variable(in_bounds=[self, ], data=np.abs(self.data), requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            # 绑定反向求梯度的函数
+            outputs.grad_fn = AbsBackward
+            initialize_ops_grad(self)
+            self.out_bounds.append(outputs)
         return outputs
 
     # reshape，传入的参数应该是一个list或者tuple
@@ -245,11 +250,12 @@ class Node:
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
 
-        outputs = Variable(in_bounds=[self], data=self.data.reshape(*shapes))
-        # 绑定反向求梯度的函数
-        outputs.grad_fn = ViewBackward
-        initialize_ops_grad(self)
-        self.out_bounds.append(outputs)
+        outputs = Variable(in_bounds=[self, ], data=self.data.reshape(*shapes), requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            # 绑定反向求梯度的函数
+            outputs.grad_fn = ViewBackward
+            initialize_ops_grad(self)
+            self.out_bounds.append(outputs)
         return outputs
 
     # 求log
@@ -264,13 +270,14 @@ class Node:
             ret_value = np.log10(self.data)
         else:
             ret_value = np.log(self.data)
-        outputs = Variable(in_bounds=[self], data=ret_value)
-        # 绑定反向求梯度的函数
-        outputs.grad_fn = LogBackward
-        # 记录下base供反向传播用
-        outputs.cache['base'] = base
-        initialize_ops_grad(self)
-        self.out_bounds.append(outputs)
+        outputs = Variable(in_bounds=[self, ], data=ret_value, requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            # 绑定反向求梯度的函数
+            outputs.grad_fn = LogBackward
+            # 记录下base供反向传播用
+            outputs.cache['base'] = base
+            initialize_ops_grad(self)
+            self.out_bounds.append(outputs)
         return outputs
 
     # 求exp
@@ -278,25 +285,27 @@ class Node:
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
 
-        outputs = Variable(in_bounds=[self], data=np.exp(self.data))
-        # 绑定反向求梯度的函数
-        outputs.grad_fn = ExpBackward
-        initialize_ops_grad(self)
-        self.out_bounds.append(outputs)
+        outputs = Variable(in_bounds=[self, ], data=np.exp(self.data), requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            # 绑定反向求梯度的函数
+            outputs.grad_fn = ExpBackward
+            initialize_ops_grad(self)
+            self.out_bounds.append(outputs)
         return outputs
 
     def max(self, axis=None):
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
-        outputs = Variable(in_bounds=[self], data=np.max(self.data, axis=axis))
-        outputs.cache['axis'] = axis
-        outputs.grad_fn = MaxBackward
-        initialize_ops_grad(self)
-        self.out_bounds.append(outputs)
+        outputs = Variable(in_bounds=[self, ], data=np.max(self.data, axis=axis), requires_grad=self.requires_grad)
+        if outputs.requires_grad:
+            outputs.cache['axis'] = axis
+            outputs.grad_fn = MaxBackward
+            initialize_ops_grad(self)
+            self.out_bounds.append(outputs)
         return outputs
 
     def argmax(self, axis=None):
-        outputs = Variable(in_bounds=[self], data=np.argmax(self.data, axis=axis))
+        outputs = Variable(in_bounds=[self, ], data=np.argmax(self.data, axis=axis), requires_grad=self.requires_grad)
         return outputs
 
     def numel(self):
@@ -440,37 +449,45 @@ class Layer:
 # 加法
 def add(*ops: Variable) -> Variable:
     data = 0
+    requires_grad = False
     for op in ops:
         data += op.data
-    outputs = Variable(in_bounds=[*ops], data=data)
-    initialize_ops_grad(*ops)
-    # 绑定反向求梯度的函数
-    outputs.grad_fn = AddBackward
-    for op in ops:
-        op.out_bounds.append(outputs)
+        requires_grad = requires_grad or op.requires_grad
+    outputs = Variable(in_bounds=[*ops], data=data, requires_grad=requires_grad)
+    if outputs.requires_grad:
+        initialize_ops_grad(*ops)
+        # 绑定反向求梯度的函数
+        outputs.grad_fn = AddBackward
+        for op in ops:
+            op.out_bounds.append(outputs)
     return outputs
 
 
 # 减法
 def sub(*ops: Variable) -> Variable:
     outputs = ops[0].data
+    requires_grad = ops[0].requires_grad
     for op in ops[1:]:
         outputs = outputs - op.data
-    outputs = Variable(in_bounds=[*ops], data=outputs)
-    initialize_ops_grad(*ops)
-    # 绑定反向求梯度的函数
-    outputs.grad_fn = SubBackward
-    for op in ops:
-        op.out_bounds.append(outputs)
+        requires_grad = requires_grad or op.requires_grad
+    outputs = Variable(in_bounds=[*ops], data=outputs, requires_grad=requires_grad)
+    if outputs.requires_grad:
+        initialize_ops_grad(*ops)
+        # 绑定反向求梯度的函数
+        outputs.grad_fn = SubBackward
+        for op in ops:
+            op.out_bounds.append(outputs)
     return outputs
 
 
 # 对自身取负
 def neg(x: Variable) -> Variable:
-    outputs = Variable(in_bounds=[x], data=-x.data, requires_grad=True)
-    initialize_ops_grad(x)
-    # 绑定反向求梯度的函数
-    outputs.grad_fn = NegBackward
+    outputs = Variable(in_bounds=[x], data=-x.data, requires_grad=x.requires_grad)
+    if outputs.requires_grad:
+        x.out_bounds.append(outputs)
+        initialize_ops_grad(x)
+        # 绑定反向求梯度的函数
+        outputs.grad_fn = NegBackward
     return outputs
 
 
@@ -485,7 +502,7 @@ def mul(x: Variable, y: Variable) -> Variable:
     outputs = None
     if len(x.shape) == 1 or len(y.shape) == 1:
         # 点乘
-        outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
+        outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=x.requires_grad or y.requires_grad)
         outputs.grad_fn = MultiplyBackward
     elif len(x.shape) == len(y.shape):
         matmul_flag = False
@@ -495,28 +512,30 @@ def mul(x: Variable, y: Variable) -> Variable:
                 break
         if matmul_flag:
             # 矩阵乘
-            outputs = Variable(in_bounds=[x, y], data=np.dot(x.data, y.data), requires_grad=True)
+            outputs = Variable(in_bounds=[x, y], data=np.dot(x.data, y.data), requires_grad=x.requires_grad or y.requires_grad)
             outputs.grad_fn = MatmulBackward
         else:
             # 点乘
-            outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=True)
+            outputs = Variable(in_bounds=[x, y], data=x.data * y.data, requires_grad=x.requires_grad or y.requires_grad)
             outputs.grad_fn = MultiplyBackward
     else:
         raise ValueError('can\'t peroform either multiply nor matmul between {} and {}'.format(x, y))
-    initialize_ops_grad(x, y)
-    x.out_bounds.append(outputs)
-    y.out_bounds.append(outputs)
+    if outputs.requires_grad:
+        initialize_ops_grad(x, y)
+        x.out_bounds.append(outputs)
+        y.out_bounds.append(outputs)
     return outputs
 
 
 def slices(x, item):
     if GlobalGraph.inputs is None:
         GlobalGraph.inputs = x
-    ret = Variable(data=x.data[item], in_bounds=[x, ])
-    x.out_bounds.append(ret)
-    ret.cache['pos'] = item
-    initialize_ops_grad(x)
-    ret.grad_fn = SlicesBackward
+    ret = Variable(data=x.data[item], in_bounds=[x, ], requires_grad=x.requires_grad)
+    if ret.requires_grad:
+        x.out_bounds.append(ret)
+        ret.cache['pos'] = item
+        initialize_ops_grad(x)
+        ret.grad_fn = SlicesBackward
     return ret
 
 

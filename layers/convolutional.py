@@ -3,7 +3,7 @@ from .activators import get_activator
 from ..nn.core import Layer, Variable
 from ..nn import global_graph as GlobalGraph
 from ..nn.functional import conv2d, max_pool2d, avg_pool2d, channel_max_pool
-from ..nn.grad_fn import Conv2DBackward, Maxpool2DBackward, Avgpool2DBackward, ChannelMaxpoolBackward
+from ..nn.grad_fn import Conv2DBackward, Maxpool2DBackward, Avgpool2DBackward, ChannelMaxpoolBackward, ChannelAvgpoolBackward
 from typing import Tuple, Union
 
 
@@ -250,4 +250,4 @@ class ChannelAvgPooling(Layer):
         return self.data
 
     def backward(self, gradients=None):
-        ChannelMaxpoolBackward(self.data)
+        ChannelAvgpoolBackward(self.data)
