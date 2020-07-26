@@ -142,6 +142,44 @@ def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, pad
     return outputs
 
 
+def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0):
+    if stride is None:
+        stride = kernel_size
+    if padding != 0:
+        data = np.pad(inputs.data, ((0, 0), (padding, padding), (0, 0), (0, 0)), 'constant')
+    else:
+        data = inputs.data
+
+    n, c, h, w = data.shape
+    if kernel_size == stride:
+        mode = 'reshape'
+        x_reshaped = data.reshape((n, c // kernel_size, kernel_size, h, w))
+        outputs = Variable(data=x_reshaped.max(axis=2), in_bounds=[inputs])
+        outputs.cache['x_reshaped'] = x_reshaped
+
+    else:
+        mode = 'im2col'
+        out_c = (c - kernel_size) // stride + 1
+        col = np.zeros((n, kernel_size, out_c, h, w))
+        for y in range(kernel_size):
+            y_max = y + stride * out_c
+            col[:, y] = data[:, y: y_max: stride]
+
+        pool_argmax = np.argmax(col, axis=1)
+        outputs = np.max(col, axis=1).reshape((n, out_c, h, w))
+        outputs = Variable(data=outputs, in_bounds=[inputs])
+        outputs.cache['pool_argmax'] = pool_argmax
+        outputs.cache['kernel_size'] = kernel_size
+
+    outputs.cache['mode'] = mode
+    outputs.cache['pad_size'] = padding
+    outputs.cache['stride'] = stride
+    outputs.grad_fn = ChannelMaxpoolBackward
+    inputs.out_bounds.append(outputs)
+    initialize_ops_grad(inputs)
+    return outputs
+
+
 def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding: int = 0):
     if padding != 0:
         data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
@@ -160,6 +198,44 @@ def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding
     outputs.cache['pad_size'] = padding
     outputs.cache['stride'] = stride
     outputs.grad_fn = Avgpool2DBackward
+    inputs.out_bounds.append(outputs)
+    initialize_ops_grad(inputs)
+    return outputs
+
+
+def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0):
+    if stride is None:
+        stride = kernel_size
+    if padding != 0:
+        data = np.pad(inputs.data, ((0, 0), (padding, padding), (0, 0), (0, 0)), 'constant')
+    else:
+        data = inputs.data
+
+    n, c, h, w = data.shape
+    if kernel_size == stride:
+        mode = 'reshape'
+        x_reshaped = data.reshape((n, c // kernel_size, kernel_size, h, w))
+        outputs = Variable(data=x_reshaped.mean(axis=2), in_bounds=[inputs])
+        outputs.cache['x_reshaped'] = x_reshaped
+
+    else:
+        mode = 'im2col'
+        out_c = (c - kernel_size) // stride + 1
+        col = np.zeros((n, kernel_size, out_c, h, w))
+        for y in range(kernel_size):
+            y_max = y + stride * out_c
+            col[:, y] = data[:, y: y_max: stride]
+
+        pool_argmean = np.array([range(col.shape[1])])
+        outputs = np.mean(col, axis=1).reshape((n, out_c, h, w))
+        outputs = Variable(data=outputs, in_bounds=[inputs])
+        outputs.cache['pool_argmean'] = pool_argmean
+        outputs.cache['kernel_size'] = kernel_size
+
+    outputs.cache['mode'] = mode
+    outputs.cache['pad_size'] = padding
+    outputs.cache['stride'] = stride
+    outputs.grad_fn = ChannelAvgpoolBackward
     inputs.out_bounds.append(outputs)
     initialize_ops_grad(inputs)
     return outputs

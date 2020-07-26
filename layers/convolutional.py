@@ -2,8 +2,8 @@ from ..nn.initializers import get_initializer, Initializer
 from .activators import get_activator
 from ..nn.core import Layer, Variable
 from ..nn import global_graph as GlobalGraph
-from ..nn.functional import conv2d, max_pool2d, avg_pool2d
-from ..nn.grad_fn import Conv2DBackward, Maxpool2DBackward, Avgpool2DBackward
+from ..nn.functional import conv2d, max_pool2d, avg_pool2d, channel_max_pool
+from ..nn.grad_fn import Conv2DBackward, Maxpool2DBackward, Avgpool2DBackward, ChannelMaxpoolBackward
 from typing import Tuple, Union
 
 
@@ -179,3 +179,75 @@ class AvgPooling2D(Layer):
 
     def backward(self, gradients=None):
         Avgpool2DBackward(self.data)
+
+
+class ChannelMaxPooling(Layer):
+    def __init__(self, kernel_size: int = 2, stride: int = None, padding: int = 0):
+        self.kernel_size = kernel_size
+        self.stride = kernel_size if stride is None else stride
+        self.padding = padding
+        self.mode = 'reshape'
+        super(ChannelMaxPooling, self).__init__()
+
+    def compute_output_shape(self, input_shape=None):
+        n_c_prev, n_h, n_w = input_shape
+        if self.kernel_size == self.stride:
+            self.mode = 'reshape'
+        else:
+            self.mode = 'im2col'
+        n_c = (n_c_prev - self.kernel_size + 2 * self.padding) / self.stride + 1
+        return n_c, n_h, n_w
+
+    def __call__(self, inbound):
+        if isinstance(inbound, Variable):
+            output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding)
+            # output是一个Variable
+            return output
+        super(ChannelMaxPooling, self).__call__(inbound)
+        return self
+
+    def forward(self, x: Variable = None, is_training=True, *args):
+        if x is not None:
+            self.input_data = x
+        self.data = channel_max_pool(self.input_data, self.kernel_size, self.stride, self.padding)
+        self.connect_init(self.data, is_training)
+        return self.data
+
+    def backward(self, gradients=None):
+        ChannelMaxpoolBackward(self.data)
+
+
+class ChannelAvgPooling(Layer):
+    def __init__(self, kernel_size: int = 2, stride: int = None, padding: int = 0):
+        self.kernel_size = kernel_size
+        self.stride = kernel_size if stride is None else stride
+        self.padding = padding
+        self.mode = 'reshape'
+        super(ChannelAvgPooling, self).__init__()
+
+    def compute_output_shape(self, input_shape=None):
+        n_c_prev, n_h, n_w = input_shape
+        if self.kernel_size == self.stride:
+            self.mode = 'reshape'
+        else:
+            self.mode = 'im2col'
+        n_c = (n_c_prev - self.kernel_size + 2 * self.padding) / self.stride + 1
+        return n_c, n_h, n_w
+
+    def __call__(self, inbound):
+        if isinstance(inbound, Variable):
+            output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding)
+            # output是一个Variable
+            return output
+        super(ChannelAvgPooling, self).__call__(inbound)
+        return self
+
+    def forward(self, x: Variable = None, is_training=True, *args):
+        if x is not None:
+            self.input_data = x
+        self.data = channel_max_pool(self.input_data, self.kernel_size, self.stride, self.padding)
+        self.connect_init(self.data, is_training)
+        return self.data
+
+    def backward(self, gradients=None):
+        ChannelMaxpoolBackward(self.data)

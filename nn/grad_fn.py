@@ -236,6 +236,51 @@ def Maxpool2DBackward(outputs):
         inputs.grad += grad
 
 
+def ChannelMaxpoolBackward(outputs):
+    mode = outputs.cache['mode']
+    inputs, = outputs.in_bounds
+    if mode == 'reshape':
+        # （n, c // kernel_size, kernel_size, h, w）
+        dx_reshaped = np.zeros_like(outputs.cache['x_reshaped'])
+        # （n, c // kernel_size, 1, h, w）
+        out_newaxis = outputs.data[:, :, np.newaxis, :, :]
+        mask = (outputs.cache['x_reshaped'] == out_newaxis)
+        # （n, c // kernel_size, 1, h, w）
+        dout_newaxis = outputs.grad[:, :, np.newaxis, :, :]
+        dout_broadcast, _ = np.broadcast_arrays(dout_newaxis, dx_reshaped)
+        dx_reshaped[mask] = dout_broadcast[mask]
+        dx_reshaped /= np.sum(mask, axis=2, keepdims=True)
+        grad = dx_reshaped.reshape(inputs.data.shape)
+        if outputs.cache['pad_size']:
+            grad = grad[:, outputs.cache['pad_size']: -outputs.cache['pad_size']]
+    else:
+        raise NotImplemented
+
+    if inputs.requires_grad:
+        inputs.grad += grad
+
+
+def ChannelAvgpoolBackward(outputs):
+    mode = outputs.cache['mode']
+    inputs, = outputs.in_bounds
+    if mode == 'reshape':
+        dx_reshaped = np.zeros_like(outputs.cache['x_reshaped'])
+        out_newaxis = outputs.data[:, :, np.newaxis, :, :]
+        mask = (outputs.cache['x_reshaped'] == out_newaxis)
+        dout_newaxis = outputs.grad[:, :, np.newaxis, :, :]
+        dout_broadcast, _ = np.broadcast_arrays(dout_newaxis, dx_reshaped)
+        dx_reshaped[mask] = dout_broadcast[mask]
+        dx_reshaped /= np.mean(mask, axis=2, keepdims=True)
+        grad = dx_reshaped.reshape(inputs.data.shape)
+        if outputs.cache['pad_size']:
+            grad = grad[:, outputs.cache['pad_size']: -outputs.cache['pad_size']]
+    else:
+        raise NotImplemented
+
+    if inputs.requires_grad:
+        inputs.grad += grad
+
+
 def Avgpool2DBackward(outputs):
     inputs, = outputs.in_bounds
     grad = outputs.grad.transpose(0, 2, 3, 1)
