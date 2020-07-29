@@ -88,6 +88,14 @@ class Node:
         self.grad_fn = IAddBackward
         return self
 
+    def __eq__(self, other):
+        if self.data.size != other.data.size:
+            return False
+        return Variable(self.data == other.data, requires_grad=self.requires_grad or other.requires_grad)
+
+    def __hash__(self):
+        return hash(id(self))
+
     # 取负号
     def __neg__(self):
         if GlobalGraph.inputs is None:
@@ -293,10 +301,13 @@ class Node:
             self.out_bounds.append(outputs)
         return outputs
 
-    def max(self, axis=None):
+    def max(self, axis=None, **kwargs):
         if GlobalGraph.inputs is None:
             GlobalGraph.inputs = self
-        outputs = Variable(in_bounds=[self, ], data=np.max(self.data, axis=axis), requires_grad=self.requires_grad)
+        requires_grad = kwargs.pop('requires_grad', False)
+        keepdims = kwargs.pop('keepdims', False)
+        outputs = Variable(in_bounds=[self, ], data=np.max(self.data, axis=axis, keepdims=keepdims),
+                           requires_grad=self.requires_grad or requires_grad, **kwargs)
         if outputs.requires_grad:
             outputs.cache['axis'] = axis
             outputs.grad_fn = MaxBackward
@@ -304,8 +315,9 @@ class Node:
             self.out_bounds.append(outputs)
         return outputs
 
-    def argmax(self, axis=None):
-        outputs = Variable(in_bounds=[self, ], data=np.argmax(self.data, axis=axis), requires_grad=self.requires_grad)
+    def argmax(self, axis=None, **kwargs):
+        requires_grad = kwargs.pop('requires_grad', False)
+        outputs = Variable(in_bounds=[self, ], data=np.argmax(self.data, axis=axis), requires_grad=self.requires_grad or requires_grad)
         return outputs
 
     def numel(self):

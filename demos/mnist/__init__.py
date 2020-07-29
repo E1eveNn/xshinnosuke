@@ -1,1 +1,1 @@
-from .train import go
+from .train import go, load_mnist
