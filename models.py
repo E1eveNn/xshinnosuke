@@ -100,8 +100,6 @@ class Module:
             progress_bar = ProgressBar(max_iter=len(train_x), verbose=verbose)
 
             for idx, (xs, ys) in enumerate(train_dataloader):
-                xs = Variable(xs)
-                ys = Variable(ys)
                 self.train()
                 # reset trainable_variables grad
                 self.optimizer.zero_grad()
@@ -139,8 +137,6 @@ class Module:
             acc_list = []
             loss_list = []
             for xs, ys in val_dataloader:
-                xs = Variable(xs)
-                ys = Variable(ys)
                 y_pred = self.forward(xs)
                 metric = self.loss.metric(y_pred, ys)
                 acc_list.append(metric[0])

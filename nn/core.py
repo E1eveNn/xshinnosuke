@@ -316,17 +316,26 @@ class Variable(Node):
     def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
                  out_bounds: Union[List, Tuple] = None,
                  name: str = None, requires_grad: bool = True, dtype: str = 'float64'):
-        # Variable初始化时必须提供data值，data值可能传入的是一个int或者float，我们需要把它包装成numpy矩阵（cpp中就包装成我们选的矩阵库类型）
-        dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
-                      'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
-        data = np.asarray(data, dtype=dtype_dict[dtype])  # 数据类型用float64吧，float32也行
-        Node.__init__(self,
-                      in_bounds=in_bounds,
-                      out_bounds=out_bounds,
-                      data=data,
-                      shape=data.shape,
-                      name=name,
-                      requires_grad=requires_grad)
+        if isinstance(data, Variable):
+            Node.__init__(self,
+                          in_bounds=data.in_bounds,
+                          out_bounds=data.out_bounds,
+                          data=data.data,
+                          shape=data.data.shape,
+                          name=data.name,
+                          requires_grad=data.requires_grad)
+        else:
+            # Variable初始化时必须提供data值，data值可能传入的是一个int或者float，我们需要把它包装成numpy矩阵（cpp中就包装成我们选的矩阵库类型）
+            dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
+                          'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
+            data = np.asarray(data, dtype=dtype_dict[dtype])  # 数据类型用float64吧，float32也行
+            Node.__init__(self,
+                          in_bounds=in_bounds,
+                          out_bounds=out_bounds,
+                          data=data,
+                          shape=data.shape,
+                          name=name,
+                          requires_grad=requires_grad)
 
     def __getitem__(self, item):
         return slices(self, item)
