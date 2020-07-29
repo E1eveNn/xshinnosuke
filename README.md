@@ -24,7 +24,7 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 
 
-[1. API docs](https://elevennn.github.io/xshinnosuke/)       [2. Notebook](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/XShinnosuke-API.ipynb)
+[1. API docs](https://elevennn.github.io/xshinnosuke/)       [2. Notebook](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/examples/XShinnosuke-API.ipynb)
 
 ---
 
@@ -32,11 +32,11 @@ XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
 
 **Here are some demos~**
 
-1. [ResNet18 with Dynamic Graph](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_dynamic_graph.ipynb)
+1. [ResNet18 with Dynamic Graph](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/examples/resnet18_dynamic_graph.ipynb)
 
-2. [ResNet18 with Static Graph](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/resnet18_static_graph.ipynb)
+2. [ResNet18 with Static Graph](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/examples/resnet18_static_graph.ipynb)
 
-3. [Autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb)
+3. [Autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/examples/autograd.ipynb)
 
 4. [Gobang](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/gobang/ui.py)
 
@@ -229,7 +229,7 @@ print('b grad:', b.grad)  # b grad: 270.0
 print('a grad:', a.grad)  # a grad: 270.0
 ```
 
-Here are examples of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/examples/autograd.ipynb). 
+Here are examples of [autograd](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/examples/autograd.ipynb). 
 
 ## Installation
 
@@ -237,7 +237,7 @@ Before installing XShinnosuke, please install the following **dependencies**:
 
 + Numpy
 
-- Cupy = 6.0.0 (**Optional**, if installed, Xshinnosuke will use this first)
+- Cupy = 6.0.0 (**Optional**, if installed, Xshinnosuke will use this to speed up)
 
 ```markdown
 notice that cupy requires **Microsoft Visual C++ 14.0**
@@ -262,6 +262,8 @@ Then you can install XShinnosuke by using pip:
 - Conv2D
 - MaxPooling2D
 - AvgPooling2D
+- ChannelMaxPooling
+- ChannelAvgPooling
 - Activation
 - Input
 - Dropout
