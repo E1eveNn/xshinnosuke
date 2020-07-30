@@ -66,7 +66,7 @@ class Conv2D(Layer):
 
         return self.out_channels, n_H, n_W
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         # if isinstance(inbound, Variable):
         if inbound.data is not None:
             if GlobalGraph.inputs is None:
@@ -125,7 +125,7 @@ class MaxPooling2D(Layer):
             return int(kernel_size), int(kernel_size)
         return kernel_size
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = max_pool2d(inbound, self.kernel_size, self.stride, self.padding)
             # output是一个Variable
@@ -162,7 +162,7 @@ class AvgPooling2D(Layer):
                    (n_w_prev - self.kernel_size + 2 * self.padding) // self.stride[1] + 1
         return n_c, n_h, n_w
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = avg_pool2d(inbound, self.kernel_size, self.stride, self.padding)
             # output是一个Variable
@@ -198,7 +198,7 @@ class ChannelMaxPooling(Layer):
         n_c = (n_c_prev - self.kernel_size + 2 * self.padding) / self.stride + 1
         return n_c, n_h, n_w
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding)
             # output是一个Variable
@@ -234,7 +234,7 @@ class ChannelAvgPooling(Layer):
         n_c = (n_c_prev - self.kernel_size + 2 * self.padding) / self.stride + 1
         return n_c, n_h, n_w
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding)
             # output是一个Variable

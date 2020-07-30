@@ -11,7 +11,7 @@ class Input(Layer):
         self.input_shape = input_shape
         self.shape = self.compute_output_shape(input_shape)
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             return inbound
         super().__call__(inbound)
@@ -39,7 +39,7 @@ class ZeroPadding2D(Layer):
             return int(pad_size), int(pad_size)
         return pad_size
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = pad_2d(inbound, (self.pad_h, self.pad_w))
             # output是一个Variable
@@ -63,7 +63,7 @@ class ZeroPadding2D(Layer):
 
 
 class Add(Layer):
-    def __call__(self, inbounds: List[Layer]):
+    def __call__(self, inbounds: List[Layer], *args, **kwargs):
         # inbounds只能是Layer数组
         for inbound in inbounds:
             inbound.out_bounds.append(self)
@@ -88,7 +88,7 @@ class Add(Layer):
 
 
 class Negative(Layer):
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         super().__call__(inbound)
         return self
 
@@ -104,7 +104,7 @@ class Negative(Layer):
 
 
 class Multiply(Layer):
-    def __call__(self, inbounds: List[Layer]):
+    def __call__(self, inbounds: List[Layer], *args, **kwargs):
         for inbound in inbounds:
             super().__call__(inbound)
         return self
@@ -124,7 +124,7 @@ class Multiply(Layer):
 
 
 class Matmul(Layer):
-    def __call__(self, inbounds: List[Layer]):
+    def __call__(self, inbounds: List[Layer], *args, **kwargs):
         """
         只支持两个Layer做矩阵乘
         """
@@ -160,7 +160,7 @@ class Log(Layer):
         else:
             raise ValueError('unknown base value {}'.format(base))
 
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         super().__call__(inbound)
         return self
 
@@ -183,7 +183,7 @@ class Log(Layer):
 
 
 class Exp(Layer):
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         super().__call__(inbound)
         return self
 
@@ -199,7 +199,7 @@ class Exp(Layer):
 
 
 class Sum(Layer):
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         super().__call__(inbound)
         return self
 
@@ -218,7 +218,7 @@ class Sum(Layer):
 
 
 class Mean(Layer):
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         super().__call__(inbound)
         return self
 
@@ -237,7 +237,7 @@ class Mean(Layer):
 
 
 class Abs(Layer):
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         super().__call__(inbound)
         return self
 
@@ -257,7 +257,7 @@ class Pow(Layer):
         self.exponent = exponent
         super().__init__()
 
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         super().__call__(inbound)
         return self
 
@@ -278,7 +278,7 @@ class Reshape(Layer):
         self.shape = shape
         self.inplace = inplace
 
-    def __call__(self, inbound: Layer):
+    def __call__(self, inbound: Layer, *args, **kwargs):
         if isinstance(inbound, Variable):
             return reshape(inbound, (-1, ) + self.shape, self.inplace)
         super().__call__(inbound)

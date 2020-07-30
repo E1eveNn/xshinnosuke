@@ -11,9 +11,10 @@ class Dropout(Layer):
         self.mask = None
         super(Dropout, self).__init__()
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            output = dropout2d(inbound, self.keep_prob)
+            is_training = kwargs.pop('is_training', True)
+            output = dropout2d(inbound, self.keep_prob, training=is_training)
             # output是一个Variable
             return output
         super(Dropout, self).__call__(inbound)
@@ -59,11 +60,12 @@ class BatchNormalization(Layer):
         self.moving_mean = self.moving_mean_initializer(n_in)
         self.moving_variance = self.moving_variance_initializer(n_in)
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
+            is_training = kwargs.pop('is_training', True)
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = batchnorm2d(inbound, self.variables[0], self.variables[1], self.axis, self.epsilon, True,
+            output = batchnorm2d(inbound, self.variables[0], self.variables[1], self.axis, self.epsilon, is_training,
                                  self.momentum, self.moving_mean, self.moving_variance)
             return output
         super().__call__(inbound)
@@ -97,11 +99,12 @@ class LayerNormalization(Layer):
         self.variables.append(gamma)
         self.variables.append(beta)
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
+            is_training = kwargs.pop('is_training', True)
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = layernorm2d(inbound, self.variables[0], self.variables[1], True, self.epsilon)
+            output = layernorm2d(inbound, self.variables[0], self.variables[1], is_training, self.epsilon)
             return output
         Layer.__call__(self, inbound)
         return self
@@ -136,11 +139,12 @@ class GroupNormalization(Layer):
         self.variables.append(gamma)
         self.variables.append(beta)
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
+            is_training = kwargs.pop('is_training', True)
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = groupnorm2d(inbound, self.variables[0], self.variables[1], True, self.epsilon, self.G)
+            output = groupnorm2d(inbound, self.variables[0], self.variables[1], is_training, self.epsilon, self.G)
             return output
         Layer.__call__(self, inbound)
         return self

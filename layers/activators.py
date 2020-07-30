@@ -8,9 +8,10 @@ class Activation(Layer):
         self.activation = get_activator(act_name)
         super(Activation, self).__init__()
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            output = self.activation.forward(inbound)
+            is_training = kwargs.pop('is_training', True)
+            output = self.activation.forward(inbound, is_training=is_training)
             # output是一个Variable
             return output
         super(Activation, self).__call__(inbound)
@@ -35,12 +36,10 @@ class ReLU(Layer):
         super().__init__()
         self.inplace = inplace
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            # output = relu(inbound, self.inplace)
-            #
-            # return output
-            return self.forward(inbound)
+            is_training = kwargs.pop('is_training', True)
+            return self.forward(inbound, is_training=is_training)
         super().__call__(inbound)
         return self
 
@@ -65,7 +64,7 @@ class ReLU(Layer):
 
 
 class Linear(Layer):
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             return inbound
         super().__call__(inbound)
@@ -86,6 +85,13 @@ class Linear(Layer):
 
 
 class Sigmoid(Layer):
+    def __call__(self, inbound, *args, **kwargs):
+        if isinstance(inbound, Variable):
+            is_training = kwargs.pop('is_training', True)
+            return self.forward(inbound, is_training=is_training)
+        super().__call__(inbound)
+        return self
+
     def forward(self, x: Variable = None, is_training=True, *args):
         if x is not None:
             self.input_data = x
@@ -100,6 +106,13 @@ class Sigmoid(Layer):
 
 
 class Tanh(Layer):
+    def __call__(self, inbound, *args, **kwargs):
+        if isinstance(inbound, Variable):
+            is_training = kwargs.pop('is_training', True)
+            return self.forward(inbound, is_training=is_training)
+        super().__call__(inbound)
+        return self
+
     def forward(self, x: Variable = None, is_training=True, *args):
         if x is not None:
             self.input_data = x

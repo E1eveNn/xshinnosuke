@@ -327,7 +327,7 @@ class Node:
 class Variable(Node):
     def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
                  out_bounds: Union[List, Tuple] = None,
-                 name: str = None, requires_grad: bool = True, dtype: str = 'float64'):
+                 name: str = None, requires_grad: bool = True, dtype: str = 'float32'):
         if isinstance(data, Variable):
             Node.__init__(self,
                           in_bounds=data.in_bounds,
@@ -359,7 +359,7 @@ class Variable(Node):
 class Constant(Node):
     def __init__(self, data: Union[GlobalGraph.np.ndarray, int, float], in_bounds: List = None,
                  out_bounds: Union[List, Tuple] = None,
-                 name: str = None, dtype: str = 'float64'):
+                 name: str = None, dtype: str = 'float32'):
         # Constant初始化时必须提供data值，并且一旦初始化就不可修改，Constant因为值不需要修改，也就没必要计算梯度，默认require_grads为False
         # !!!!!!!!!!!!!!!!注意Constant里的这个data要是const类型的，总之就是Constant的data一旦初始化后没办法被修改
         dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
@@ -407,7 +407,7 @@ class Layer:
         # 如果传入的variables不是None，就赋值，否则初始化为空的数组
         self.variables = variables if variables else []
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         # 实际inbound可能是Layer也可能是Variable，需要重载，这里在父类里只实现了是Layer的情况，是Variable的情况在子类里在特殊实现。每个子类都会手动调用父类的__call__方法
         # 输入是Layer
         self.shape = self.compute_output_shape(inbound.shape)

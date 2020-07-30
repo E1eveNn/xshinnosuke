@@ -15,7 +15,7 @@ class Flatten(Layer):
         self.start = start
         super(Flatten, self).__init__(**kwargs)
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             if GlobalGraph.inputs is None:
                 GlobalGraph.inputs = inbound
@@ -54,7 +54,7 @@ class Dense(Layer):
         self.kernel_regularizer = kernel_regularizer
         super(Dense, self).__init__(**kwargs)
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             if GlobalGraph.inputs is None:
                 GlobalGraph.inputs = inbound

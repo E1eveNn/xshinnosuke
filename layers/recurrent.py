@@ -51,7 +51,7 @@ class Recurrent(Layer):
         self.stateful = stateful
         self.input_length = input_length
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         assert len(inbound.shape) == 2, 'Only support batch input'
         super(Recurrent, self).__call__(inbound)
         return self

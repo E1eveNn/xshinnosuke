@@ -20,7 +20,7 @@ class Embedding(Layer):
     def compute_output_shape(self, input_shape=None):
         return input_shape + (self.output_dim,)
 
-    def __call__(self, inbound):
+    def __call__(self, inbound, *args, **kwargs):
         assert self.output_dim is not None and self.input_dim is not None
         if isinstance(inbound, Variable):
             if GlobalGraph.inputs is None:
