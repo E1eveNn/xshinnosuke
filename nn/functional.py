@@ -52,7 +52,7 @@ def dense(inputs: Variable, weight: Variable, bias: Variable = None):
     outputs = inputs.data.dot(weight.data)
     if bias is not None:
         outputs += bias.data
-    outputs = Variable(data=outputs, in_bounds=[inputs, weight, bias], requires_grad=inputs.requires_grad or weight.requires_grad or bias.requires_grad)
+    outputs = Variable(data=outputs, in_bounds=[inputs, weight, bias], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
     if outputs.requires_grad:
         outputs.grad_fn = DenseBackward
         inputs.out_bounds.append(outputs)
@@ -100,7 +100,7 @@ def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tu
     if bias is not None:
         outputs += bias.data
     outputs = outputs.reshape(batch_nums, n_h, n_w, -1).transpose(0, 3, 1, 2)
-    outputs = Variable(data=outputs, in_bounds=[inputs, weight, bias], requires_grad=inputs.requires_grad or weight.requires_grad or bias.requires_grad)
+    outputs = Variable(data=outputs, in_bounds=[inputs, weight, bias], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
     if outputs.requires_grad:
         # store these for bp
         outputs.cache['col'] = col
