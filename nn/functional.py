@@ -6,10 +6,12 @@ from typing import Tuple
 
 
 def relu(inputs: Variable, inplace: bool = False, training: bool = True) -> Variable:
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if inplace:
         inputs.data[inputs.data < 0] = 0
         return inputs
-    outputs = Variable(data=np.maximum(0, inputs.data), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
+    outputs = Variable(data=GlobalGraph.np.maximum(0, inputs.data), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         outputs.grad_fn = ReluBackward
@@ -18,7 +20,9 @@ def relu(inputs: Variable, inplace: bool = False, training: bool = True) -> Vari
 
 
 def sigmoid(inputs: Variable, training: bool = True):
-    outputs = 1. / (1 + np.exp(-inputs.data))
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
+    outputs = 1. / (1 + GlobalGraph.np.exp(-inputs.data))
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
@@ -28,7 +32,9 @@ def sigmoid(inputs: Variable, training: bool = True):
 
 
 def tanh(inputs: Variable, training: bool = True):
-    outputs = np.tanh(inputs.data)
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
+    outputs = GlobalGraph.np.tanh(inputs.data)
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
@@ -38,9 +44,11 @@ def tanh(inputs: Variable, training: bool = True):
 
 
 def softmax(inputs: Variable, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     # more stable softmax
-    shiftx = inputs.data - np.max(inputs.data)
-    outputs = np.divide(np.exp(shiftx), np.sum(np.exp(shiftx), axis=-1, keepdims=True))
+    shiftx = inputs.data - GlobalGraph.np.max(inputs.data)
+    outputs = GlobalGraph.np.divide(GlobalGraph.np.exp(shiftx), GlobalGraph.np.sum(GlobalGraph.np.exp(shiftx), axis=-1, keepdims=True))
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
@@ -49,6 +57,8 @@ def softmax(inputs: Variable, training: bool = True):
 
 
 def dense(inputs: Variable, weight: Variable, bias: Variable = None, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     outputs = inputs.data.dot(weight.data)
     if bias is not None:
         outputs += bias.data
@@ -62,6 +72,8 @@ def dense(inputs: Variable, weight: Variable, bias: Variable = None, training: b
 
 
 def flatten(inputs: Variable, start: int = 1, inplace: bool = False, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     output_shape = tuple(inputs.shape[:start]) + (-1, )
     if inplace:
         inputs.data = inputs.data.reshape(output_shape)
@@ -75,7 +87,9 @@ def flatten(inputs: Variable, start: int = 1, inplace: bool = False, training: b
 
 
 def embedding(inputs: Variable, weight: Variable, training: bool = True):
-    outputs = Variable(weight.data[inputs.data.astype(np.int)], in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad)
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
+    outputs = Variable(weight.data[inputs.data.astype(GlobalGraph.np.int)], in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad)
     outputs.set_variables([weight, ])
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
@@ -85,10 +99,12 @@ def embedding(inputs: Variable, weight: Variable, training: bool = True):
 
 
 def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tuple = (1, 1), padding: int = 0, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     # before pad size
     batch_nums, n_c_prev, n_h_prev, n_w_prev = inputs.data.shape
     # pad
-    pad_data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
+    pad_data = GlobalGraph.np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
 
     out_channels, in_channels, kernel_h, kernel_w = weight.data.shape
     # output size
@@ -116,10 +132,12 @@ def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tu
 
 
 def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, padding: int = 0, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if stride is None:
         stride = kernel_size
     if padding != 0:
-        data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
+        data = GlobalGraph.np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
     else:
         data = inputs.data
 
@@ -139,8 +157,8 @@ def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, pad
 
         col = im2col(data, out_h, out_w, kernel_size, kernel_size, stride)
         col = col.reshape(-1, kernel_size * kernel_size)
-        pool_argmax = np.argmax(col, axis=1)
-        outputs = np.max(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
+        pool_argmax = GlobalGraph.np.argmax(col, axis=1)
+        outputs = GlobalGraph.np.max(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
         outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
         if training and outputs.requires_grad:
             outputs.cache['pool_argmax'] = pool_argmax
@@ -157,10 +175,12 @@ def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, pad
 
 
 def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if stride is None:
         stride = kernel_size
     if padding != 0:
-        data = np.pad(inputs.data, ((0, 0), (padding, padding), (0, 0), (0, 0)), 'constant')
+        data = GlobalGraph.np.pad(inputs.data, ((0, 0), (padding, padding), (0, 0), (0, 0)), 'constant')
     else:
         data = inputs.data
 
@@ -175,13 +195,13 @@ def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
     else:
         mode = 'im2col'
         out_c = (c - kernel_size) // stride + 1
-        col = np.zeros((n, kernel_size, out_c, h, w))
+        col = GlobalGraph.np.zeros((n, kernel_size, out_c, h, w))
         for y in range(kernel_size):
             y_max = y + stride * out_c
             col[:, y] = data[:, y: y_max: stride]
 
-        pool_argmax = np.argmax(col, axis=1)
-        outputs = np.max(col, axis=1).reshape((n, out_c, h, w))
+        pool_argmax = GlobalGraph.np.argmax(col, axis=1)
+        outputs = GlobalGraph.np.max(col, axis=1).reshape((n, out_c, h, w))
         outputs = Variable(data=outputs, in_bounds=[inputs], requires_grad=inputs.requires_grad)
         if training and outputs.requires_grad:
             outputs.cache['pool_argmax'] = pool_argmax
@@ -198,8 +218,10 @@ def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
 
 
 def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding: int = 0, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if padding != 0:
-        data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
+        data = GlobalGraph.np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
     else:
         data = inputs.data
 
@@ -207,8 +229,8 @@ def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding
     out_h, out_w = (h - kernel_size) // stride[0] + 1, (w - kernel_size) // stride[1] + 1
     col = im2col(data, out_h, out_w, kernel_size, kernel_size, stride)
     col = col.reshape(-1, kernel_size * kernel_size)
-    pool_argmean = np.array([range(col.shape[1])])
-    outputs = np.mean(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
+    pool_argmean = GlobalGraph.np.array([range(col.shape[1])])
+    outputs = GlobalGraph.np.mean(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
@@ -222,10 +244,12 @@ def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding
 
 
 def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if stride is None:
         stride = kernel_size
     if padding != 0:
-        data = np.pad(inputs.data, ((0, 0), (padding, padding), (0, 0), (0, 0)), 'constant')
+        data = GlobalGraph.np.pad(inputs.data, ((0, 0), (padding, padding), (0, 0), (0, 0)), 'constant')
     else:
         data = inputs.data
 
@@ -240,13 +264,13 @@ def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
     else:
         mode = 'im2col'
         out_c = (c - kernel_size) // stride + 1
-        col = np.zeros((n, kernel_size, out_c, h, w))
+        col = GlobalGraph.np.zeros((n, kernel_size, out_c, h, w))
         for y in range(kernel_size):
             y_max = y + stride * out_c
             col[:, y] = data[:, y: y_max: stride]
 
-        pool_argmean = np.array([range(col.shape[1])])
-        outputs = np.mean(col, axis=1).reshape((n, out_c, h, w))
+        pool_argmean = GlobalGraph.np.array([range(col.shape[1])])
+        outputs = GlobalGraph.np.mean(col, axis=1).reshape((n, out_c, h, w))
         outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
         if training and outputs.requires_grad:
             outputs.cache['pool_argmean'] = pool_argmean
@@ -263,11 +287,13 @@ def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
 
 
 def pad_2d(inputs: Variable, padding: tuple, inplace: bool = False, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if inplace:
-        inputs.data = np.pad(inputs.data, ((0, 0), (0, 0), (padding[0], padding[0]), (padding[1], padding[1])),
+        inputs.data = GlobalGraph.np.pad(inputs.data, ((0, 0), (0, 0), (padding[0], padding[0]), (padding[1], padding[1])),
                              'constant')
         return inputs
-    outputs = Variable(data=np.pad(inputs.data, ((0, 0), (0, 0), (padding[0], padding[0]), (padding[1], padding[1])),
+    outputs = Variable(data=GlobalGraph.np.pad(inputs.data, ((0, 0), (0, 0), (padding[0], padding[0]), (padding[1], padding[1])),
                                    'constant'), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
@@ -278,9 +304,11 @@ def pad_2d(inputs: Variable, padding: tuple, inplace: bool = False, training: bo
 
 
 def dropout2d(inputs: Variable, keep_prob: float = 0.5, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if not training:
         return inputs
-    random_tensor = np.random.binomial(n=1, p=keep_prob, size=inputs.data.shape)
+    random_tensor = GlobalGraph.np.random.binomial(n=1, p=keep_prob, size=inputs.data.shape)
     outputs = inputs.data * random_tensor / keep_prob
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
@@ -293,7 +321,9 @@ def dropout2d(inputs: Variable, keep_prob: float = 0.5, training: bool = True):
 
 
 def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, epsilon: float = 1e-6,
-                training: bool = True, momentum: float = 0.99, moving_mean: np.ndarray = None, moving_variance: np.ndarray = None):
+                training: bool = True, momentum: float = 0.99, moving_mean: GlobalGraph.np.ndarray = None, moving_variance: GlobalGraph.np.ndarray = None):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if moving_mean is not None:
         inputs.cache['moving_mean'] = moving_mean
     if moving_variance is not None:
@@ -307,7 +337,7 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
     ndim = inputs_data.ndim
 
     if not (axis == -1 or axis == ndim - 1):
-        inputs_data = np.swapaxes(inputs_data, axis, -1)
+        inputs_data = GlobalGraph.np.swapaxes(inputs_data, axis, -1)
 
     before_reshape_shape = inputs_data.shape
     inputs_data = inputs_data.reshape(-1, inputs.data.shape[axis])
@@ -316,12 +346,12 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
     normalized_x = None
     if training:
         # calc mean
-        mean = np.mean(inputs_data, axis=0)
+        mean = GlobalGraph.np.mean(inputs_data, axis=0)
         # calc var
-        var = np.var(inputs_data, axis=0)
+        var = GlobalGraph.np.var(inputs_data, axis=0)
         # x minus u
         xmu = inputs_data - mean
-        sqrtvar = np.sqrt(var + epsilon)
+        sqrtvar = GlobalGraph.np.sqrt(var + epsilon)
         normalized_x = xmu / sqrtvar
         outputs = gamma.data * normalized_x + beta.data
 
@@ -329,14 +359,14 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
         inputs.cache['moving_variance'] = momentum * inputs.cache['moving_variance'].data + (1 - momentum) * var
 
     else:
-        scale = gamma.data / (np.sqrt(inputs.cache['moving_variance'].data + epsilon))
+        scale = gamma.data / (GlobalGraph.np.sqrt(inputs.cache['moving_variance'].data + epsilon))
         outputs = inputs_data * scale + (beta.data - inputs.cache['moving_mean'].data * scale)
 
     outputs = outputs.reshape(before_reshape_shape)
 
     if not (axis == -1 or axis == ndim - 1):
         # for instance,outputs:(N,W,H,C), self.axis=1, after swapaxes,outputs:(N,C,H,W)
-        outputs = np.swapaxes(outputs, axis, -1)
+        outputs = GlobalGraph.np.swapaxes(outputs, axis, -1)
 
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
     outputs.set_variables([gamma, beta])
@@ -352,15 +382,17 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
 
 
 def layernorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: bool = True, epsilon: float = 1e-10):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     inputs_data = inputs.data
     shape_field = tuple([i for i in range(1, inputs_data.ndim)])
     # calc mean
-    mean = np.mean(inputs_data, axis=shape_field, keepdims=True)
+    mean = GlobalGraph.np.mean(inputs_data, axis=shape_field, keepdims=True)
     # calc var
-    var = np.var(inputs_data, axis=shape_field, keepdims=True)
+    var = GlobalGraph.np.var(inputs_data, axis=shape_field, keepdims=True)
     # x minus u
     xmu = inputs_data - mean
-    sqrtvar = np.sqrt(var + epsilon)
+    sqrtvar = GlobalGraph.np.sqrt(var + epsilon)
     normalized_x = xmu / sqrtvar
     outputs = gamma.data * normalized_x + beta.data
 
@@ -379,16 +411,18 @@ def layernorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: boo
 
 def groupnorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: bool = True, epsilon: float = 1e-5,
                 groups: int = 16):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     inputs_data = inputs.data
     n, c, h, w = inputs_data.shape
     shape_field = tuple([i for i in range(2, inputs_data.ndim)])
-    x_group = np.reshape(inputs_data, (n, groups, c // groups, h, w))
-    mean = np.mean(x_group, axis=shape_field, keepdims=True)
-    var = np.var(x_group, axis=shape_field, keepdims=True)
+    x_group = GlobalGraph.np.reshape(inputs_data, (n, groups, c // groups, h, w))
+    mean = GlobalGraph.np.mean(x_group, axis=shape_field, keepdims=True)
+    var = GlobalGraph.np.var(x_group, axis=shape_field, keepdims=True)
     xgmu = x_group - mean
-    sqrtvar = np.sqrt(var + epsilon)
+    sqrtvar = GlobalGraph.np.sqrt(var + epsilon)
     x_group_norm = xgmu / sqrtvar
-    x_norm = np.reshape(x_group_norm, (n, c, h, w))
+    x_norm = GlobalGraph.np.reshape(x_group_norm, (n, c, h, w))
     outputs = gamma.data * x_norm + beta.data
 
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
@@ -405,13 +439,15 @@ def groupnorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: boo
 
 
 def reshape(inputs: Variable, shape: Tuple, inplace: bool = True, training: bool = True):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
     if inplace:
         inputs.cache['inplace'] = inplace
         inputs.cache['input_shape'] = inputs.shape
-        inputs.data = np.reshape(inputs.data, shape)
+        inputs.data = GlobalGraph.np.reshape(inputs.data, shape)
         inputs.shape = inputs.data.shape
         return inputs
-    outputs = Variable(data=np.reshape(inputs.data, shape), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
+    outputs = Variable(data=GlobalGraph.np.reshape(inputs.data, shape), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         outputs.cache['inplace'] = inplace
@@ -424,7 +460,7 @@ def concatenate(*variables: Variable, axis: int, output: Variable = None, name: 
     data = variables[0].data
     requires_grad = variables[0].requires_grad
     for i in range(1, len(variables)):
-        data = np.concatenate((data, variables[i].data), axis=axis)
+        data = GlobalGraph.np.concatenate((data, variables[i].data), axis=axis)
         requires_grad = requires_grad or variables[i].requires_grad
     if output is None:
         output = Variable(data=data, name=name, in_bounds=[variables], requires_grad=requires_grad)

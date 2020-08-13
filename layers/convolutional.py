@@ -69,9 +69,6 @@ class Conv2D(Layer):
     def __call__(self, inbound, *args, **kwargs):
         # if isinstance(inbound, Variable):
         if inbound.data is not None:
-            if GlobalGraph.INPUTS is None:
-                GlobalGraph.INPUTS = inbound
-
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
             output = conv2d(inbound, self.variables[0], self.variables[1], self.stride, self.pad_size, GlobalGraph.IS_TRAINING)

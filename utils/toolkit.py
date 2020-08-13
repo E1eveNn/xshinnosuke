@@ -149,7 +149,8 @@ class DataLoader:
         batches = []
         for data in self.mini_batches[self.sp]:
             batches.append(Variable(data))
-        return batches
+        return batches[0] if len(batches) == 1 else batches
+
 
     def make_batches(self, datas: List[np.ndarray], batch_size: int, seed: int, shuffle: bool = False):
         if batch_size is None:

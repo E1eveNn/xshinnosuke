@@ -17,9 +17,6 @@ class Flatten(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            if GlobalGraph.INPUTS is None:
-                GlobalGraph.INPUTS = inbound
-
             output = flatten(inbound, self.start, training=GlobalGraph.IS_TRAINING)
             # output是一个Variable
             return output
@@ -56,9 +53,6 @@ class Dense(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            if GlobalGraph.INPUTS is None:
-                GlobalGraph.INPUTS = inbound
-
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
             output = dense(inbound, self.variables[0], self.variables[1], GlobalGraph.IS_TRAINING)

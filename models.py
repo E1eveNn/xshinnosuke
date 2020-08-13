@@ -21,11 +21,11 @@ class Base:
         GlobalGraph.IS_TRAINING = False
 
 
-class _Model:
+class _Model(Base):
     def __init__(self):
+        super().__init__()
         self.loss = None  # Variable
         self.optimizer = None  # Optimizer类型
-        self.variables = set()
 
     def compile(self, optimizer, loss):
         raise NotImplemented
@@ -77,6 +77,7 @@ class _Model:
             progress_bar = ProgressBar(max_iter=len(train_x), verbose=verbose)
 
             for idx, (xs, ys) in enumerate(train_dataloader):
+                self.train()
                 # reset trainable_variables grad
                 self.optimizer.zero_grad()
                 # forward
@@ -115,6 +116,7 @@ class _Model:
             layer.backward()
 
     def evaluate(self, x: GlobalGraph.np.ndarray, y: GlobalGraph.np.ndarray, batch_size: int = None):
+        self.eval()
         x = GlobalGraph.np.asarray(x)
         y = GlobalGraph.np.asarray(y)
         if batch_size is not None:
@@ -124,7 +126,7 @@ class _Model:
             acc_list = []
             loss_list = []
             for xs, ys in val_dataloader:
-                y_pred = self.forward(xs, is_training=False)
+                y_pred = self.forward(xs)
                 metric = self.loss.metric(y_pred, ys)
                 acc_list.append(metric[0])
                 loss_list.append(metric[1])
@@ -132,23 +134,24 @@ class _Model:
             acc = GlobalGraph.np.array(acc_list).mean().tolist()
             loss = GlobalGraph.np.array(loss_list).mean().tolist()
         else:
-            y_pred = self.forward(x, is_training=False)
+            y_pred = self.forward(Variable(x))
             acc, loss = self.loss.metric(y_pred, y)
 
         return acc, loss
 
     def predict(self, x: GlobalGraph.np.ndarray, batch_size: int = None):
+        self.eval()
         if batch_size is not None:
             assert type(batch_size) is int
             test_dataset = DataSet(x)
             test_dataloader = DataLoader(test_dataset, batch_size)
             pred_list = []
             for xs in test_dataloader:
-                y_pred = self.forward(xs, is_training=False)
+                y_pred = self.forward(xs)
                 pred_list.append(y_pred)
             pred = concatenate(*pred_list, axis=0)
         else:
-            pred = self.forward(x, is_training=False)
+            pred = self.forward(Variable(x))
 
         return pred
 
@@ -210,7 +213,7 @@ class _Model:
         return params_details
 
 
-class Sequential(_Model, Base):
+class Sequential(_Model):
     def __init__(self, *layers: Layer):
         super().__init__()
         self.graph = [] if layers is None else list(layers)
@@ -233,7 +236,7 @@ class Sequential(_Model, Base):
 
     def forward(self, x, *args, **kwargs):
         for layer in self.graph:
-            if hasattr(layer, 'variables') and len(layer.variables) == 0:
+            if isinstance(layer, Layer) and len(layer.variables) == 0:
                 layer.initial_params(x.shape[1:])
             x = layer.forward(x)
         return x
@@ -244,7 +247,7 @@ class Sequential(_Model, Base):
         print('success delete %s layer' % layer.__class__.__name__)
 
 
-class Model(_Model, Base):
+class Model(_Model):
     def __init__(self, inputs=None, outputs=None):
         super().__init__()
         self.inputs = inputs

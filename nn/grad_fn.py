@@ -1,5 +1,5 @@
 # 写关于Node和Layer运算所需要的函数
-from .global_graph import np
+from . import global_graph as GlobalGraph
 from .toolkit import col2im
 from functools import reduce
 
@@ -9,7 +9,7 @@ def AddBackward(outputs):
         if in_bound.requires_grad:
             not_equal_axis = [k for k, v in enumerate(outputs.shape) if v != in_bound.shape[k]]
             if not_equal_axis:
-                in_bound.grad += np.sum(outputs.grad, axis=not_equal_axis[0])
+                in_bound.grad += GlobalGraph.np.sum(outputs.grad, axis=not_equal_axis[0])
             else:
                 in_bound.grad += outputs.grad
 
@@ -41,9 +41,9 @@ def MatmulBackward(outputs):
     # z = x * y, dloss/dx = dloss/dz * dz/dx = dloss/dz * y
     x, y = outputs.in_bounds
     if x.requires_grad:
-        x.grad += np.dot(outputs.grad, y.data.T)
+        x.grad += GlobalGraph.np.dot(outputs.grad, y.data.T)
     if y.requires_grad:
-        y.grad += np.dot(x.data.T, outputs.grad)
+        y.grad += GlobalGraph.np.dot(x.data.T, outputs.grad)
 
 
 def TransposeBackward(outputs):
@@ -67,7 +67,7 @@ def MultiplyBackward(outputs):
         if in_bound.requires_grad:
             not_equal_axis = [k for k, v in enumerate(outputs.shape) if v != in_bound.shape[k]]
             if not_equal_axis:
-                in_bound.grad += np.sum(outputs.grad * product_except_self_list[i], axis=not_equal_axis[0])
+                in_bound.grad += GlobalGraph.np.sum(outputs.grad * product_except_self_list[i], axis=not_equal_axis[0])
             else:
                 in_bound.grad += outputs.grad * product_except_self_list[i]
 
@@ -75,7 +75,7 @@ def MultiplyBackward(outputs):
 def SumBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
-        inputs.grad += np.ones_like(inputs.data) * outputs.grad
+        inputs.grad += GlobalGraph.np.ones_like(inputs.data) * outputs.grad
 
 
 def MeanBackward(outputs):
@@ -86,8 +86,8 @@ def MeanBackward(outputs):
         if outputs.data.ndim < inputs.data.ndim:
             axis = outputs.cache['axis']
             if axis is not None:
-                grad = np.expand_dims(grad, axis)
-        inputs.grad += np.ones_like(inputs.data) * grad / mean_nums
+                grad = GlobalGraph.np.expand_dims(grad, axis)
+        inputs.grad += GlobalGraph.np.ones_like(inputs.data) * grad / mean_nums
 
 
 def MaxBackward(outputs):
@@ -97,15 +97,15 @@ def MaxBackward(outputs):
         if outputs.data.ndim < inputs.data.ndim:
             axis = outputs.cache['axis']
             if axis is not None:
-                grad = np.expand_dims(grad, axis)
-        mask = (inputs.data == np.max(inputs.data))
+                grad = GlobalGraph.np.expand_dims(grad, axis)
+        mask = (inputs.data == GlobalGraph.np.max(inputs.data))
         inputs.grad += mask * grad
 
 
 def AbsBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
-        grad_ = np.asarray(outputs.data == inputs.data, dtype=np.int8)
+        grad_ = GlobalGraph.np.asarray(outputs.data == inputs.data, dtype=GlobalGraph.np.int8)
         grad_[grad_ == 0] = -1
         inputs.grad += grad_
 
@@ -119,8 +119,8 @@ def ViewBackward(outputs):
 def LogBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
-        base = outputs.cache['base'] if outputs.cache['base'] != 'e' else np.e
-        inputs.grad += outputs.grad / (inputs.data * np.log(base))
+        base = outputs.cache['base'] if outputs.cache['base'] != 'e' else GlobalGraph.np.e
+        inputs.grad += outputs.grad / (inputs.data * GlobalGraph.np.log(base))
 
 
 def ExpBackward(outputs):
@@ -134,9 +134,9 @@ def PowBackward(outputs):
     if inputs.requires_grad:
         n_times = outputs.cache['power']
         if n_times < 1:
-            inputs.grad += n_times * outputs.grad / np.power(inputs.data, 1 - n_times)
+            inputs.grad += n_times * outputs.grad / GlobalGraph.np.power(inputs.data, 1 - n_times)
         else:
-            inputs.grad += n_times * np.power(inputs.data, n_times - 1) * outputs.grad
+            inputs.grad += n_times * GlobalGraph.np.power(inputs.data, n_times - 1) * outputs.grad
 
 
 def ReluBackward(outputs):
@@ -162,7 +162,7 @@ def SigmoidBackward(outputs):
 def TanhBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
-        inputs.grad += outputs.grad * (1 - np.square(outputs.data))
+        inputs.grad += outputs.grad * (1 - GlobalGraph.np.square(outputs.data))
 
 
 def FlattenBackward(outputs):
@@ -178,7 +178,7 @@ def DenseBackward(outputs):
     if weight.requires_grad:
         weight.grad += inputs.data.T.dot(outputs.grad)
     if bias is not None and bias.requires_grad:
-        bias.grad += np.sum(outputs.grad, axis=0, keepdims=True)
+        bias.grad += GlobalGraph.np.sum(outputs.grad, axis=0, keepdims=True)
     if inputs.requires_grad:
         inputs.grad += outputs.grad.dot(weight.data.T)
 
@@ -187,7 +187,7 @@ def EmbeddingBackward(outputs):
     inputs,  = outputs.in_bounds
     weight, = outputs.get_variables()
     if weight.requires_grad:
-        weight.grad[inputs.data.astype(np.int)] += outputs.grad
+        weight.grad[inputs.data.astype(GlobalGraph.np.int)] += outputs.grad
 
 
 def Conv2DBackward(outputs):
@@ -201,7 +201,7 @@ def Conv2DBackward(outputs):
         weight.grad += grad_reshaped.dot(outputs.cache['col']).reshape(out_channels, in_channels, kernel_h, kernel_w)
 
     if bias is not None and bias.requires_grad:
-        bias.grad += np.sum(outputs.grad, axis=(0, 2, 3))
+        bias.grad += GlobalGraph.np.sum(outputs.grad, axis=(0, 2, 3))
 
     dcol = grad_reshaped.T.dot(weight.data.reshape(out_channels, -1))
 
@@ -214,21 +214,21 @@ def Maxpool2DBackward(outputs):
     mode = outputs.cache['mode']
     inputs, = outputs.in_bounds
     if mode == 'reshape':
-        dx_reshaped = np.zeros_like(outputs.cache['x_reshaped'])
-        out_newaxis = outputs.data[:, :, :, np.newaxis, :, np.newaxis]
+        dx_reshaped = GlobalGraph.np.zeros_like(outputs.cache['x_reshaped'])
+        out_newaxis = outputs.data[:, :, :, GlobalGraph.np.newaxis, :, GlobalGraph.np.newaxis]
         mask = (outputs.cache['x_reshaped'] == out_newaxis)
-        dout_newaxis = outputs.grad[:, :, :, np.newaxis, :, np.newaxis]
-        dout_broadcast, _ = np.broadcast_arrays(dout_newaxis, dx_reshaped)
+        dout_newaxis = outputs.grad[:, :, :, GlobalGraph.np.newaxis, :, GlobalGraph.np.newaxis]
+        dout_broadcast, _ = GlobalGraph.np.broadcast_arrays(dout_newaxis, dx_reshaped)
         dx_reshaped[mask] = dout_broadcast[mask]
-        dx_reshaped /= np.sum(mask, axis=(3, 5), keepdims=True)
+        dx_reshaped /= GlobalGraph.np.sum(mask, axis=(3, 5), keepdims=True)
         grad = dx_reshaped.reshape(inputs.data.shape)
         if outputs.cache['pad_size']:
             grad = grad[:, :, outputs.cache['pad_size']: -outputs.cache['pad_size'],
                    outputs.cache['pad_size']: -outputs.cache['pad_size']]
     else:
         grad = outputs.grad.transpose(0, 2, 3, 1)
-        dmax = np.zeros((grad.size, outputs.cache['kernel_size'] * outputs.cache['kernel_size']))
-        dmax[np.arange(outputs.cache['pool_argmax'].size), outputs.cache['pool_argmax'].flatten()] = grad.flatten()
+        dmax = GlobalGraph.np.zeros((grad.size, outputs.cache['kernel_size'] * outputs.cache['kernel_size']))
+        dmax[GlobalGraph.np.arange(outputs.cache['pool_argmax'].size), outputs.cache['pool_argmax'].flatten()] = grad.flatten()
         dmax = dmax.reshape(grad.shape + (outputs.cache['kernel_size'] * outputs.cache['kernel_size'],))
 
         dcol = dmax.reshape(reduce(lambda x, y: x * y, dmax.shape[:3]), -1)
@@ -244,15 +244,15 @@ def ChannelMaxpoolBackward(outputs):
     inputs, = outputs.in_bounds
     if mode == 'reshape':
         # （n, c // kernel_size, kernel_size, h, w）
-        dx_reshaped = np.zeros_like(outputs.cache['x_reshaped'])
+        dx_reshaped = GlobalGraph.np.zeros_like(outputs.cache['x_reshaped'])
         # （n, c // kernel_size, 1, h, w）
-        out_newaxis = outputs.data[:, :, np.newaxis, :, :]
+        out_newaxis = outputs.data[:, :, GlobalGraph.np.newaxis, :, :]
         mask = (outputs.cache['x_reshaped'] == out_newaxis)
         # （n, c // kernel_size, 1, h, w）
-        dout_newaxis = outputs.grad[:, :, np.newaxis, :, :]
-        dout_broadcast, _ = np.broadcast_arrays(dout_newaxis, dx_reshaped)
+        dout_newaxis = outputs.grad[:, :, GlobalGraph.np.newaxis, :, :]
+        dout_broadcast, _ = GlobalGraph.np.broadcast_arrays(dout_newaxis, dx_reshaped)
         dx_reshaped[mask] = dout_broadcast[mask]
-        dx_reshaped /= np.sum(mask, axis=2, keepdims=True)
+        dx_reshaped /= GlobalGraph.np.sum(mask, axis=2, keepdims=True)
         grad = dx_reshaped.reshape(inputs.data.shape)
         if outputs.cache['pad_size']:
             grad = grad[:, outputs.cache['pad_size']: -outputs.cache['pad_size']]
@@ -267,13 +267,13 @@ def ChannelAvgpoolBackward(outputs):
     mode = outputs.cache['mode']
     inputs, = outputs.in_bounds
     if mode == 'reshape':
-        dx_reshaped = np.zeros_like(outputs.cache['x_reshaped'])
-        out_newaxis = outputs.data[:, :, np.newaxis, :, :]
+        dx_reshaped = GlobalGraph.np.zeros_like(outputs.cache['x_reshaped'])
+        out_newaxis = outputs.data[:, :, GlobalGraph.np.newaxis, :, :]
         mask = (outputs.cache['x_reshaped'] == out_newaxis)
-        dout_newaxis = outputs.grad[:, :, np.newaxis, :, :]
-        dout_broadcast, _ = np.broadcast_arrays(dout_newaxis, dx_reshaped)
+        dout_newaxis = outputs.grad[:, :, GlobalGraph.np.newaxis, :, :]
+        dout_broadcast, _ = GlobalGraph.np.broadcast_arrays(dout_newaxis, dx_reshaped)
         dx_reshaped[mask] = dout_broadcast[mask]
-        dx_reshaped /= np.mean(mask, axis=2, keepdims=True)
+        dx_reshaped /= GlobalGraph.np.mean(mask, axis=2, keepdims=True)
         grad = dx_reshaped.reshape(inputs.data.shape)
         if outputs.cache['pad_size']:
             grad = grad[:, outputs.cache['pad_size']: -outputs.cache['pad_size']]
@@ -287,7 +287,7 @@ def ChannelAvgpoolBackward(outputs):
 def Avgpool2DBackward(outputs):
     inputs, = outputs.in_bounds
     grad = outputs.grad.transpose(0, 2, 3, 1)
-    dmean = np.repeat(grad.flatten(), outputs.cache['pool_argmean'].size) / (
+    dmean = GlobalGraph.np.repeat(grad.flatten(), outputs.cache['pool_argmean'].size) / (
             outputs.cache['kernel_size'] * outputs.cache['kernel_size'])
     dmean = dmean.reshape(grad.shape + (outputs.cache['kernel_size'] * outputs.cache['kernel_size'],))
     dcol = dmean.reshape(reduce(lambda x, y: x * y, dmean.shape[:3]), -1)
@@ -323,7 +323,7 @@ def Batchnorm2DBackward(outputs):
         normalized_x = outputs.cache['normalized_x']
         if not (axis == -1 or axis == ndim - 1):
             # for instance,inputs:(N,C,H,W),self.axis=1,after swapaxes,Inputs:(N,W,H,C)
-            grad = np.swapaxes(grad, axis, -1)
+            grad = GlobalGraph.np.swapaxes(grad, axis, -1)
 
         # (N,W,H,C) / (N,M)
         before_reshape_shape = grad.shape
@@ -331,21 +331,21 @@ def Batchnorm2DBackward(outputs):
         grad = grad.reshape(-1, inputs.data.shape[axis])
 
         if gamma.requires_grad:
-            gamma.grad += np.sum(grad * normalized_x, axis=0)
+            gamma.grad += GlobalGraph.np.sum(grad * normalized_x, axis=0)
 
         if beta.requires_grad:
-            beta.grad += np.sum(grad, axis=0)
+            beta.grad += GlobalGraph.np.sum(grad, axis=0)
 
         N = normalized_x.shape[0]
         dnormalized_x = grad * gamma.data
-        dvar = np.sum(np.power(- 1. / sqrtvar, 3) * xmu * dnormalized_x * 0.5, axis=0)
-        dmean = np.sum(- dnormalized_x / sqrtvar, axis=0) - 2 * dvar * np.mean(xmu, axis=0)
+        dvar = GlobalGraph.np.sum(GlobalGraph.np.power(- 1. / sqrtvar, 3) * xmu * dnormalized_x * 0.5, axis=0)
+        dmean = GlobalGraph.np.sum(- dnormalized_x / sqrtvar, axis=0) - 2 * dvar * GlobalGraph.np.mean(xmu, axis=0)
         grad = dnormalized_x / sqrtvar + dvar * 2 * xmu / N + dmean / N
         grad = grad.reshape(before_reshape_shape)
 
         if not (axis == -1 or axis == ndim - 1):
             # for instance,outputs:(N,W,H,C),self.axis=1,after swapaxes,outputs:(N,C,H,W)
-            grad = np.swapaxes(grad, axis, -1)
+            grad = GlobalGraph.np.swapaxes(grad, axis, -1)
 
         inputs.grad += grad
 
@@ -356,9 +356,9 @@ def Layernorm2DBackward(outputs):
     grad = outputs.grad
     if gamma.requires_grad:
         normalized_x = inputs.cache['normalized_x']
-        gamma.grad += np.sum(grad * normalized_x, axis=0)
+        gamma.grad += GlobalGraph.np.sum(grad * normalized_x, axis=0)
     if beta.requires_grad:
-        beta.grad += np.sum(grad, axis=0)
+        beta.grad += GlobalGraph.np.sum(grad, axis=0)
 
     if inputs.requires_grad:
         xmu = outputs.cache['xmu']
@@ -369,10 +369,10 @@ def Layernorm2DBackward(outputs):
         N = reduce(lambda x, y: x * y, normalized_x.shape[1:])
 
         dnormalized_x = grad * gamma.data
-        dvar = (-0.5) * np.sum(dnormalized_x * xmu, axis=shape_field, keepdims=True) * (
+        dvar = (-0.5) * GlobalGraph.np.sum(dnormalized_x * xmu, axis=shape_field, keepdims=True) * (
                     std_inv ** 3)  # (m,1)=(m,c,h,w)*(m,c,h,w)*(m,1)
 
-        dmean = (-1.0) * np.sum(dnormalized_x * std_inv, axis=shape_field, keepdims=True) - 2.0 * dvar * np.mean(xmu,
+        dmean = (-1.0) * GlobalGraph.np.sum(dnormalized_x * std_inv, axis=shape_field, keepdims=True) - 2.0 * dvar * GlobalGraph.np.mean(xmu,
                                                                                                                  axis=shape_field, keepdims=True)
 
         grad = dnormalized_x * std_inv + (2. / N) * dvar * xmu + (1. / N) * dmean
@@ -386,9 +386,9 @@ def Groupnorm2DBackward(outputs):
     grad = outputs.grad
     if gamma.requires_grad:
         x_norm = outputs.cache['x_norm']
-        gamma.grad += np.sum(grad * x_norm, axis=(0, 2, 3), keepdims=True)
+        gamma.grad += GlobalGraph.np.sum(grad * x_norm, axis=(0, 2, 3), keepdims=True)
     if beta.requires_grad:
-        beta.grad += np.sum(grad, axis=(0, 2, 3), keepdims=True)
+        beta.grad += GlobalGraph.np.sum(grad, axis=(0, 2, 3), keepdims=True)
 
     if inputs.requires_grad:
         n, c, h, w = grad.shape
@@ -398,13 +398,13 @@ def Groupnorm2DBackward(outputs):
         std_inv = 1. / sqrtvar
         # dx_group_norm
         dx_norm = grad * gamma.data  # (N,C,H,W)
-        dx_group_norm = np.reshape(dx_norm, (n, groups, c // groups, h, w))
+        dx_group_norm = GlobalGraph.np.reshape(dx_norm, (n, groups, c // groups, h, w))
         # dvar
-        dvar = -0.5 * (std_inv ** 3) * np.sum(dx_group_norm * xgmu, axis=(2, 3, 4), keepdims=True)
+        dvar = -0.5 * (std_inv ** 3) * GlobalGraph.np.sum(dx_group_norm * xgmu, axis=(2, 3, 4), keepdims=True)
         # dmean
         N_GROUP = c // groups * h * w
-        dmean1 = np.sum(dx_group_norm * -std_inv, axis=(2, 3, 4), keepdims=True)
-        dmean2_var = dvar * -2.0 / N_GROUP * np.sum(xgmu, axis=(2, 3, 4), keepdims=True)
+        dmean1 = GlobalGraph.np.sum(dx_group_norm * -std_inv, axis=(2, 3, 4), keepdims=True)
+        dmean2_var = dvar * -2.0 / N_GROUP * GlobalGraph.np.sum(xgmu, axis=(2, 3, 4), keepdims=True)
         dmean = dmean1 + dmean2_var
         # dx_group
         dx_group1 = dx_group_norm * std_inv
@@ -412,16 +412,16 @@ def Groupnorm2DBackward(outputs):
         dx_group_mean = dmean * 1.0 / N_GROUP
         dx_group = dx_group1 + dx_group_var + dx_group_mean
         # dx
-        grad = np.reshape(dx_group, (n, c, h, w))
+        grad = GlobalGraph.np.reshape(dx_group, (n, c, h, w))
         inputs.grad += grad
 
 
 def ReshapeBackward(outputs):
     if outputs.cache['inplace']:
-        outputs.grad = np.reshape(outputs.grad, outputs.cache['input_shape'])
+        outputs.grad = GlobalGraph.np.reshape(outputs.grad, outputs.cache['input_shape'])
     else:
         inputs, = outputs.in_bounds
-        inputs.grad += np.reshape(outputs.grad, inputs.shape)
+        inputs.grad += GlobalGraph.np.reshape(outputs.grad, inputs.shape)
 
 
 def MeanSquaredBackward(outputs):
@@ -442,8 +442,8 @@ def MeanSquaredBackward(outputs):
 
 def MeanAbsoluteBackward(outputs):
     y_pred, y_true = outputs.in_bounds
-    pos = np.where((y_pred.data - y_true.data) < 0)
-    mask = np.ones_like(y_pred.data)
+    pos = GlobalGraph.np.where((y_pred.data - y_true.data) < 0)
+    mask = GlobalGraph.np.ones_like(y_pred.data)
     mask[pos] = -1
 
     gradients = mask / y_pred.data.shape[0]
@@ -462,8 +462,8 @@ def MeanAbsoluteBackward(outputs):
 
 def BinaryCrossEntropyBackward(outputs):
     y_pred, y_true = outputs.in_bounds
-    avg = np.prod(np.asarray(y_pred.data.shape[:-1]))
-    gradients = (np.divide(1 - y_true.data, 1 - y_pred.data) - np.divide(y_true.data, y_pred.data)) / avg
+    avg = GlobalGraph.np.prod(GlobalGraph.np.asarray(y_pred.data.shape[:-1]))
+    gradients = (GlobalGraph.np.divide(1 - y_true.data, 1 - y_pred.data) - GlobalGraph.np.divide(y_true.data, y_pred.data)) / avg
     if y_true.requires_grad:
         if y_true.grad is None:
             y_true.grad = gradients
@@ -481,7 +481,7 @@ def SparseCrossEntropyBackward(outputs):
     y_pred, y_true = outputs.in_bounds
     # # before softmax
     before_softmax_y_pred = y_pred.in_bounds[0]
-    avg = np.prod(np.asarray(y_pred.data.shape[:-1]))
+    avg = GlobalGraph.np.prod(GlobalGraph.np.asarray(y_pred.data.shape[:-1]))
     gradients = (y_pred.data - y_true.data) / avg
     if y_true.requires_grad:
         if y_true.grad is None:
@@ -501,12 +501,12 @@ def CrossEntropyBackward(outputs):
     # # before softmax
     before_softmax_y_pred = y_pred.in_bounds[0]
     to_sum_dim = reduce(lambda x, y: x * y, y_pred.data.shape[:-1])
-    # to_sum_dim = np.prod(y_pred.data.shape[:-1])
+    # to_sum_dim = GlobalGraph.np.prod(y_pred.data.shape[:-1])
     last_dim = y_pred.data.shape[-1]
     n = y_pred.data.shape[0]
     probs = y_pred.data.reshape(-1, last_dim)
     y_flat = y_true.data.reshape(to_sum_dim)
-    probs[np.arange(to_sum_dim), y_flat] -= 1
+    probs[GlobalGraph.np.arange(to_sum_dim), y_flat] -= 1
     gradients = probs.reshape(y_pred.data.shape) / n
     # if y_true.requires_grad:
     #     y_true.grad += gradients

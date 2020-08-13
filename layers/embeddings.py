@@ -23,9 +23,6 @@ class Embedding(Layer):
     def __call__(self, inbound, *args, **kwargs):
         assert self.output_dim is not None and self.input_dim is not None
         if isinstance(inbound, Variable):
-            if GlobalGraph.INPUTS is None:
-                GlobalGraph.INPUTS = inbound
-
             if len(self.variables) == 0:
                 self.initial_params()
             output = embedding(inbound, self.variables[0], GlobalGraph.IS_TRAINING)

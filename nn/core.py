@@ -90,7 +90,9 @@ class Node:
         if 'grad_fn' not in self.cache:
             self.cache['grad_fn'] = []
         self.cache['grad_fn'].append(self.grad_fn)
-        self.grad_fn = IAddBackward
+        if GlobalGraph.IS_TRAINING and self.requires_grad:
+            self.grad_fn = IAddBackward
+            initialize_ops_grad(self, other)
         return self
 
     def __eq__(self, other):
@@ -123,7 +125,7 @@ class Node:
     def __pow__(self, power: int, modulo=None):
         if GlobalGraph.INPUTS is None:
             GlobalGraph.INPUTS = self
-        outputs = Variable(in_bounds=[self, ], data=np.power(self.data, power), requires_grad=True)
+        outputs = Variable(in_bounds=[self, ], data=GlobalGraph.np.power(self.data, power), requires_grad=True)
         # 绑定反向求梯度的函数
         outputs.grad_fn = PowBackward
         outputs.cache['power'] = power
@@ -145,7 +147,7 @@ class Node:
             # 如果是标量，默认该标量梯度为1
             if self.data.size == 1:
                 if self.grad is None:
-                    self.grad = np.array(1.)
+                    self.grad = GlobalGraph.np.array(1.)
             else:
                 raise ValueError('grad can be implicitly created only for scalar outputs')
 
@@ -171,22 +173,22 @@ class Node:
         return self.data.shape if axis is None else self.data.shape[axis]
 
     def zero_grad(self):
-        self.grad = np.zeros_like(self.data)
+        self.grad = GlobalGraph.np.zeros_like(self.data)
 
     # 把数据转换为长整型，返回一个Variable
     def long(self):
-        output = Variable(data=self.data, dtype=np.int64, requires_grad=self.requires_grad)
+        output = Variable(data=self.data, dtype=GlobalGraph.np.int64, requires_grad=self.requires_grad)
         return output
 
     # 方法名后面加一个_指在本身数据上直接修改，没有返回值
     def long_(self):
-        self.data = self.data.astype(np.int64)
+        self.data = self.data.astype(GlobalGraph.np.int64)
 
     # 矩阵乘
     def matmul(self, other):
         if GlobalGraph.INPUTS is None:
             GlobalGraph.INPUTS = self
-        outputs_data = np.dot(self.data, other.data)
+        outputs_data = GlobalGraph.np.dot(self.data, other.data)
         outputs = Variable(data=outputs_data, in_bounds=[self, other], requires_grad=self.requires_grad or other.requires_grad)
         if outputs.requires_grad:
             outputs.grad_fn = MatmulBackward
@@ -215,9 +217,9 @@ class Node:
             GlobalGraph.INPUTS = self
         # 在哪个axis（维度）上求和
         if axis is None:
-            sum_value = np.sum(self.data, keepdims=keepdims)
+            sum_value = GlobalGraph.np.sum(self.data, keepdims=keepdims)
         else:
-            sum_value = np.sum(self.data, axis=axis, keepdims=keepdims)
+            sum_value = GlobalGraph.np.sum(self.data, axis=axis, keepdims=keepdims)
         outputs = Variable(in_bounds=[self, ], data=sum_value, requires_grad=self.requires_grad)
         if outputs.requires_grad:
             outputs.cache['axis'] = axis
@@ -233,9 +235,9 @@ class Node:
             GlobalGraph.INPUTS = self
 
         if axis is None:
-            mean_value = np.mean(self.data, keepdims=keepdims)
+            mean_value = GlobalGraph.np.mean(self.data, keepdims=keepdims)
         else:
-            mean_value = np.mean(self.data, axis=axis, keepdims=keepdims)
+            mean_value = GlobalGraph.np.mean(self.data, axis=axis, keepdims=keepdims)
         outputs = Variable(in_bounds=[self, ], data=mean_value, requires_grad=self.requires_grad)
         if outputs.requires_grad:
             outputs.cache['axis'] = axis
@@ -250,7 +252,7 @@ class Node:
         if GlobalGraph.INPUTS is None:
             GlobalGraph.INPUTS = self
 
-        outputs = Variable(in_bounds=[self, ], data=np.abs(self.data), requires_grad=self.requires_grad)
+        outputs = Variable(in_bounds=[self, ], data=GlobalGraph.np.abs(self.data), requires_grad=self.requires_grad)
         if outputs.requires_grad:
             # 绑定反向求梯度的函数
             outputs.grad_fn = AbsBackward
@@ -278,11 +280,11 @@ class Node:
 
         # 这里可能需要重载一下, base可选为2， 10和'e'
         if base == 2:
-            ret_value = np.log2(self.data)
+            ret_value = GlobalGraph.np.log2(self.data)
         elif base == 10:
-            ret_value = np.log10(self.data)
+            ret_value = GlobalGraph.np.log10(self.data)
         else:
-            ret_value = np.log(self.data)
+            ret_value = GlobalGraph.np.log(self.data)
         outputs = Variable(in_bounds=[self, ], data=ret_value, requires_grad=self.requires_grad)
         if outputs.requires_grad:
             # 绑定反向求梯度的函数
@@ -298,7 +300,7 @@ class Node:
         if GlobalGraph.INPUTS is None:
             GlobalGraph.INPUTS = self
 
-        outputs = Variable(in_bounds=[self, ], data=np.exp(self.data), requires_grad=self.requires_grad)
+        outputs = Variable(in_bounds=[self, ], data=GlobalGraph.np.exp(self.data), requires_grad=self.requires_grad)
         if outputs.requires_grad:
             # 绑定反向求梯度的函数
             outputs.grad_fn = ExpBackward
@@ -311,7 +313,7 @@ class Node:
             GlobalGraph.INPUTS = self
         requires_grad = kwargs.pop('requires_grad', False)
         keepdims = kwargs.pop('keepdims', False)
-        outputs = Variable(in_bounds=[self, ], data=np.max(self.data, axis=axis, keepdims=keepdims),
+        outputs = Variable(in_bounds=[self, ], data=GlobalGraph.np.max(self.data, axis=axis, keepdims=keepdims),
                            requires_grad=self.requires_grad or requires_grad, **kwargs)
         if outputs.requires_grad:
             outputs.cache['axis'] = axis
@@ -322,7 +324,7 @@ class Node:
 
     def argmax(self, axis=None, **kwargs):
         requires_grad = kwargs.pop('requires_grad', False)
-        outputs = Variable(in_bounds=[self, ], data=np.argmax(self.data, axis=axis), requires_grad=self.requires_grad or requires_grad)
+        outputs = Variable(in_bounds=[self, ], data=GlobalGraph.np.argmax(self.data, axis=axis), requires_grad=self.requires_grad or requires_grad)
         return outputs
 
     def numel(self):
@@ -343,9 +345,9 @@ class Variable(Node):
                           requires_grad=data.requires_grad)
         else:
             # Variable初始化时必须提供data值，data值可能传入的是一个int或者float，我们需要把它包装成numpy矩阵（cpp中就包装成我们选的矩阵库类型）
-            dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
-                          'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
-            data = np.asarray(data, dtype=dtype_dict[dtype])  # 数据类型用float64吧，float32也行
+            dtype_dict = {'int': GlobalGraph.np.int, 'float': GlobalGraph.np.float, 'int8': GlobalGraph.np.int8, 'int16': GlobalGraph.np.int16, 'int32': GlobalGraph.np.int32,
+                          'int64': GlobalGraph.np.int64, 'float32': GlobalGraph.np.float32, 'float64': GlobalGraph.np.float64}
+            data = GlobalGraph.np.asarray(data, dtype=dtype_dict[dtype])  # 数据类型用float64吧，float32也行
             Node.__init__(self,
                           in_bounds=in_bounds,
                           out_bounds=out_bounds,
@@ -367,9 +369,9 @@ class Constant(Node):
                  name: str = None, dtype: str = 'float32'):
         # Constant初始化时必须提供data值，并且一旦初始化就不可修改，Constant因为值不需要修改，也就没必要计算梯度，默认require_grads为False
         # !!!!!!!!!!!!!!!!注意Constant里的这个data要是const类型的，总之就是Constant的data一旦初始化后没办法被修改
-        dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
-                      'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
-        data = np.asarray(data, dtype=dtype_dict[dtype])
+        dtype_dict = {'int': GlobalGraph.np.int, 'float': GlobalGraph.np.float, 'int8': GlobalGraph.np.int8, 'int16': GlobalGraph.np.int16, 'int32': GlobalGraph.np.int32,
+                      'int64': GlobalGraph.np.int64, 'float32': GlobalGraph.np.float32, 'float64': GlobalGraph.np.float64}
+        data = GlobalGraph.np.asarray(data, dtype=dtype_dict[dtype])
         # 显示调用父类的初始化函数
         Node.__init__(self,
                       in_bounds=in_bounds,
@@ -534,7 +536,7 @@ def mul(x: Variable, y: Variable) -> Variable:
                 break
         if matmul_flag:
             # 矩阵乘
-            outputs = Variable(in_bounds=[x, y], data=np.dot(x.data, y.data), requires_grad=x.requires_grad or y.requires_grad)
+            outputs = Variable(in_bounds=[x, y], data=GlobalGraph.np.dot(x.data, y.data), requires_grad=x.requires_grad or y.requires_grad)
             outputs.grad_fn = MatmulBackward
         else:
             # 点乘

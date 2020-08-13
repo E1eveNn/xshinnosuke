@@ -23,11 +23,6 @@ class Objective:
     def acc(self, y_pred: Variable, y_true: Variable):
         raise NotImplemented
 
-    def metric(self, y_pred: Variable, y_true: Variable):
-        acc = self.acc(y_pred, y_true)
-        loss = self.forward(y_pred, y_true)
-        return acc, loss.data.tolist()
-
 
 class MeanSquaredError(Objective):
     def __init__(self):
@@ -38,6 +33,7 @@ class MeanSquaredError(Objective):
         return 0.
 
     def forward(self, y_pred: Variable, y_true: Variable):
+        y_pred.retain_grad()
         loss_val = 0.5 * GlobalGraph.np.sum(GlobalGraph.np.power(y_pred.data - y_true.data, 2)) / y_pred.shape[0]
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
         y_pred.out_bounds.append(loss)
@@ -54,6 +50,7 @@ class MeanAbsoluteError(Objective):
         return 0.
 
     def forward(self, y_pred: Variable, y_true: Variable):
+        y_pred.retain_grad()
         loss_val = GlobalGraph.np.sum(GlobalGraph.np.absolute(y_pred.data - y_true.data)) / y_pred.data.shape[0]
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
         y_pred.out_bounds.append(loss)
@@ -71,6 +68,7 @@ class BinaryCrossEntropy(Objective):
         return GlobalGraph.np.mean(pred == y_true.data)
 
     def forward(self, y_pred: Variable, y_true: Variable):
+        y_pred.retain_grad()
         loss_val = -GlobalGraph.np.multiply(y_true.data, GlobalGraph.np.log(y_pred.data)) - GlobalGraph.np.multiply(1 - y_true.data, GlobalGraph.np.log(1 - y_pred.data))
         loss_val = GlobalGraph.np.sum(loss_val) / y_pred.data.shape[0]
         loss = Variable(data=loss_val, in_bounds=[y_pred, y_true])
@@ -93,6 +91,7 @@ class SparseCrossEntropy(Objective):
         return GlobalGraph.np.mean(acc).tolist()
 
     def forward(self, y_pred: Variable, y_true: Variable):
+        y_pred.retain_grad()
         y_pred = softmax(y_pred)
         avg = GlobalGraph.np.prod(GlobalGraph.np.asarray(y_pred.shape[:-1]))
         loss_val = -GlobalGraph.np.sum(GlobalGraph.np.multiply(y_true.data, GlobalGraph.np.log(y_pred.data))) / avg
@@ -115,6 +114,7 @@ class CrossEntropy(Objective):
         return GlobalGraph.np.mean(acc).tolist()
 
     def forward(self, y_pred: Variable, y_true: Variable):
+        y_pred.retain_grad()
         y_true.data = y_true.data.astype(GlobalGraph.np.int64)
         y_pred = softmax(y_pred)
         to_sum_dim = reduce(lambda x, y: x * y, y_pred.data.shape[:-1])
