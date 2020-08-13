@@ -17,10 +17,10 @@ class Flatten(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            if GlobalGraph.inputs is None:
-                GlobalGraph.inputs = inbound
+            if GlobalGraph.INPUTS is None:
+                GlobalGraph.INPUTS = inbound
 
-            output = flatten(inbound, self.start)
+            output = flatten(inbound, self.start, training=GlobalGraph.IS_TRAINING)
             # output是一个Variable
             return output
         super().__call__(inbound)
@@ -32,11 +32,11 @@ class Flatten(Layer):
         output_shape = input_shape[: self.start - 1] + (flatten_shape,)
         return output_shape
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = flatten(self.input_data, self.start)
-        self.connect_init(self.data, is_training)
+        self.data = flatten(self.input_data, self.start, training=GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -56,12 +56,12 @@ class Dense(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            if GlobalGraph.inputs is None:
-                GlobalGraph.inputs = inbound
+            if GlobalGraph.INPUTS is None:
+                GlobalGraph.INPUTS = inbound
 
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = dense(inbound, self.variables[0], self.variables[1])
+            output = dense(inbound, self.variables[0], self.variables[1], GlobalGraph.IS_TRAINING)
             if self.activation is not None:
                 output = self.activation.forward(output)
             # output是一个Variable
@@ -84,17 +84,17 @@ class Dense(Layer):
     def compute_output_shape(self, input_shape=None):
         return tuple([self.out_features, ])
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         w, b = self.variables
-        self.data = dense(self.input_data, w, b)
+        self.data = dense(self.input_data, w, b, GlobalGraph.IS_TRAINING)
         if self.activation is not None:
             output = self.activation.forward(self.data)
-            self.connect_init(output, is_training)
+            self.feed_variable_to_next_layers(output)
             return output
         else:
-            self.connect_init(self.data, is_training)
+            self.feed_variable_to_next_layers(self.data)
             return self.data
 
     def backward(self, gradients=None):

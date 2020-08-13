@@ -23,23 +23,23 @@ class Embedding(Layer):
     def __call__(self, inbound, *args, **kwargs):
         assert self.output_dim is not None and self.input_dim is not None
         if isinstance(inbound, Variable):
-            if GlobalGraph.inputs is None:
-                GlobalGraph.inputs = inbound
+            if GlobalGraph.INPUTS is None:
+                GlobalGraph.INPUTS = inbound
 
             if len(self.variables) == 0:
                 self.initial_params()
-            output = embedding(inbound, self.variables[0])
+            output = embedding(inbound, self.variables[0], GlobalGraph.IS_TRAINING)
             return output
         super(Embedding, self).__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         assert self.input_data.data.ndim == 2
 
-        self.data = embedding(self.input_data, self.variables[0])
-        self.connect_init(self.data, is_training)
+        self.data = embedding(self.input_data, self.variables[0], GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):

@@ -7,9 +7,10 @@ except ModuleNotFoundError:
     np = __import__('numpy')
     warnings.warn('Looks like you\'re using Numpy, try to install Cupy to gain GPU acceleration!')
 
-inputs = None
-outputs = None
-graph = None
+INPUTS = None
+OUTPUTS = None
+GRAPH = None
+IS_TRAINING = True
 
 
 def topological_sort(ins, outs):
@@ -66,21 +67,21 @@ def topological_sort(ins, outs):
 
 
 def build_graph():
-    global graph
-    global inputs
-    global outputs
-    graph = topological_sort(inputs, outputs)
-    return graph
+    global GRAPH
+    global INPUTS
+    global OUTPUTS
+    GRAPH = topological_sort(INPUTS, OUTPUTS)
+    return GRAPH
 
 
 def reset_graph():
-    global graph
-    global inputs
-    global outputs
-    del inputs, outputs, graph
-    inputs = None
-    outputs = None
-    graph = None
+    global GRAPH
+    global INPUTS
+    global OUTPUTS
+    del INPUTS, OUTPUTS, GRAPH
+    INPUTS = None
+    OUTPUTS = None
+    GRAPH = None
 
 
 def reset_node(node):

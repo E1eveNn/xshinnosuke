@@ -19,7 +19,7 @@ class TimeDistributed(Layer):
         out_shape = self.layer.compute_output_shape(input_shape[1:])
         return (time_steps, ) + out_shape
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         time_steps = self.input_shape[0]
@@ -27,7 +27,7 @@ class TimeDistributed(Layer):
         for t in range(time_steps):
             output[:, t] = self.layer.forward(self.input_data[:, t])
         self.data = output
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):

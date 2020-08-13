@@ -5,84 +5,86 @@ from xshinnosuke.nn.initializers import Zeros, Ones
 from typing import Tuple
 
 
-def relu(inputs: Variable, inplace: bool = False) -> Variable:
+def relu(inputs: Variable, inplace: bool = False, training: bool = True) -> Variable:
     if inplace:
         inputs.data[inputs.data < 0] = 0
         return inputs
     outputs = Variable(data=np.maximum(0, inputs.data), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.grad_fn = ReluBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def sigmoid(inputs: Variable):
+def sigmoid(inputs: Variable, training: bool = True):
     outputs = 1. / (1 + np.exp(-inputs.data))
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.grad_fn = SigmoidBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def tanh(inputs: Variable):
+def tanh(inputs: Variable, training: bool = True):
     outputs = np.tanh(inputs.data)
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.grad_fn = TanhBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def softmax(inputs: Variable):
+def softmax(inputs: Variable, training: bool = True):
     # more stable softmax
     shiftx = inputs.data - np.max(inputs.data)
     outputs = np.divide(np.exp(shiftx), np.sum(np.exp(shiftx), axis=-1, keepdims=True))
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
-        inputs.out_bounds.append(outputs)
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         initialize_ops_grad(inputs)
     return outputs
 
 
-def dense(inputs: Variable, weight: Variable, bias: Variable = None):
+def dense(inputs: Variable, weight: Variable, bias: Variable = None, training: bool = True):
     outputs = inputs.data.dot(weight.data)
     if bias is not None:
         outputs += bias.data
-    outputs = Variable(data=outputs, in_bounds=[inputs, weight, bias], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
-    if outputs.requires_grad:
+    outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
+    outputs.set_variables([weight, bias])
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.grad_fn = DenseBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs, weight, bias)
     return outputs
 
 
-def flatten(inputs: Variable, start: int = 1,inplace: bool = False):
+def flatten(inputs: Variable, start: int = 1, inplace: bool = False, training: bool = True):
     output_shape = tuple(inputs.shape[:start]) + (-1, )
     if inplace:
         inputs.data = inputs.data.reshape(output_shape)
         return inputs
     outputs = Variable(data=inputs.data.reshape(output_shape), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.grad_fn = FlattenBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def embedding(inputs: Variable, weight: Variable):
-    outputs = Variable(weight.data[inputs.data.astype(np.int)], in_bounds=[inputs, weight], requires_grad=inputs.requires_grad or weight.requires_grad)
-    if outputs.requires_grad:
+def embedding(inputs: Variable, weight: Variable, training: bool = True):
+    outputs = Variable(weight.data[inputs.data.astype(np.int)], in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad)
+    outputs.set_variables([weight, ])
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.grad_fn = EmbeddingBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs, weight)
     return outputs
 
 
-def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tuple = (1, 1), padding: int = 0):
+def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tuple = (1, 1), padding: int = 0, training: bool = True):
     # before pad size
     batch_nums, n_c_prev, n_h_prev, n_w_prev = inputs.data.shape
     # pad
@@ -100,19 +102,20 @@ def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tu
     if bias is not None:
         outputs += bias.data
     outputs = outputs.reshape(batch_nums, n_h, n_w, -1).transpose(0, 3, 1, 2)
-    outputs = Variable(data=outputs, in_bounds=[inputs, weight, bias], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
-    if outputs.requires_grad:
+    outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
+    outputs.set_variables([weight, bias])
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         # store these for bp
         outputs.cache['col'] = col
         outputs.cache['stride'] = stride
         outputs.cache['pad_size'] = padding
         outputs.grad_fn = Conv2DBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs, weight, bias)
     return outputs
 
 
-def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, padding: int = 0):
+def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, padding: int = 0, training: bool = True):
     if stride is None:
         stride = kernel_size
     if padding != 0:
@@ -126,7 +129,8 @@ def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, pad
 
         x_reshaped = data.reshape((n, c, h // kernel_size, kernel_size, w // kernel_size, kernel_size))
         outputs = Variable(data=x_reshaped.max(axis=3).max(axis=4), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-        outputs.cache['x_reshaped'] = x_reshaped
+        if training and outputs.requires_grad:
+            outputs.cache['x_reshaped'] = x_reshaped
 
     else:
         mode = 'im2col'
@@ -138,19 +142,21 @@ def max_pool2d(inputs: Variable, kernel_size: int = 2, stride: Tuple = None, pad
         pool_argmax = np.argmax(col, axis=1)
         outputs = np.max(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
         outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-        outputs.cache['pool_argmax'] = pool_argmax
-        outputs.cache['kernel_size'] = kernel_size
-    if outputs.requires_grad:
+        if training and outputs.requires_grad:
+            outputs.cache['pool_argmax'] = pool_argmax
+            outputs.cache['kernel_size'] = kernel_size
+
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.cache['mode'] = mode
         outputs.cache['pad_size'] = padding
         outputs.cache['stride'] = stride
         outputs.grad_fn = Maxpool2DBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0):
+def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0, training: bool = True):
     if stride is None:
         stride = kernel_size
     if padding != 0:
@@ -163,7 +169,8 @@ def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
         mode = 'reshape'
         x_reshaped = data.reshape((n, c // kernel_size, kernel_size, h, w))
         outputs = Variable(data=x_reshaped.max(axis=2), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-        outputs.cache['x_reshaped'] = x_reshaped
+        if training and outputs.requires_grad:
+            outputs.cache['x_reshaped'] = x_reshaped
 
     else:
         mode = 'im2col'
@@ -176,19 +183,21 @@ def channel_max_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
         pool_argmax = np.argmax(col, axis=1)
         outputs = np.max(col, axis=1).reshape((n, out_c, h, w))
         outputs = Variable(data=outputs, in_bounds=[inputs], requires_grad=inputs.requires_grad)
-        outputs.cache['pool_argmax'] = pool_argmax
-        outputs.cache['kernel_size'] = kernel_size
-    if outputs.requires_grad:
+        if training and outputs.requires_grad:
+            outputs.cache['pool_argmax'] = pool_argmax
+            outputs.cache['kernel_size'] = kernel_size
+
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.cache['mode'] = mode
         outputs.cache['pad_size'] = padding
         outputs.cache['stride'] = stride
         outputs.grad_fn = ChannelMaxpoolBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding: int = 0):
+def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding: int = 0, training: bool = True):
     if padding != 0:
         data = np.pad(inputs.data, ((0, 0), (0, 0), (padding, padding), (padding, padding)), 'constant')
     else:
@@ -201,18 +210,18 @@ def avg_pool2d(inputs: Variable, kernel_size: int, stride: Tuple = None, padding
     pool_argmean = np.array([range(col.shape[1])])
     outputs = np.mean(col, axis=1).reshape((n, out_h, out_w, c)).transpose(0, 3, 1, 2)
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.cache['pool_argmean'] = pool_argmean
         outputs.cache['kernel_size'] = kernel_size
         outputs.cache['pad_size'] = padding
         outputs.cache['stride'] = stride
         outputs.grad_fn = Avgpool2DBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0):
+def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, padding: int = 0, training: bool = True):
     if stride is None:
         stride = kernel_size
     if padding != 0:
@@ -225,7 +234,8 @@ def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
         mode = 'reshape'
         x_reshaped = data.reshape((n, c // kernel_size, kernel_size, h, w))
         outputs = Variable(data=x_reshaped.mean(axis=2), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-        outputs.cache['x_reshaped'] = x_reshaped
+        if training and outputs.requires_grad:
+            outputs.cache['x_reshaped'] = x_reshaped
 
     else:
         mode = 'im2col'
@@ -238,29 +248,31 @@ def channel_avg_pool(inputs: Variable, kernel_size: int = 2, stride: int = 1, pa
         pool_argmean = np.array([range(col.shape[1])])
         outputs = np.mean(col, axis=1).reshape((n, out_c, h, w))
         outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-        outputs.cache['pool_argmean'] = pool_argmean
-        outputs.cache['kernel_size'] = kernel_size
-    if outputs.requires_grad:
+        if training and outputs.requires_grad:
+            outputs.cache['pool_argmean'] = pool_argmean
+            outputs.cache['kernel_size'] = kernel_size
+
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.cache['mode'] = mode
         outputs.cache['pad_size'] = padding
         outputs.cache['stride'] = stride
         outputs.grad_fn = ChannelAvgpoolBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
 
-def pad_2d(inputs: Variable, padding: tuple, inplace: bool = False):
+def pad_2d(inputs: Variable, padding: tuple, inplace: bool = False, training: bool = True):
     if inplace:
         inputs.data = np.pad(inputs.data, ((0, 0), (0, 0), (padding[0], padding[0]), (padding[1], padding[1])),
                              'constant')
         return inputs
     outputs = Variable(data=np.pad(inputs.data, ((0, 0), (0, 0), (padding[0], padding[0]), (padding[1], padding[1])),
                                    'constant'), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.cache['pad_size'] = padding
         outputs.grad_fn = Pad2DBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
@@ -271,11 +283,11 @@ def dropout2d(inputs: Variable, keep_prob: float = 0.5, training: bool = True):
     random_tensor = np.random.binomial(n=1, p=keep_prob, size=inputs.data.shape)
     outputs = inputs.data * random_tensor / keep_prob
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.cache['mask'] = random_tensor
         outputs.cache['keep_prob'] = keep_prob
         outputs.grad_fn = Dropout2DBackward
-        inputs.out_bounds.append(outputs)
         initialize_ops_grad(inputs)
     return outputs
 
@@ -299,7 +311,9 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
 
     before_reshape_shape = inputs_data.shape
     inputs_data = inputs_data.reshape(-1, inputs.data.shape[axis])
-
+    xmu = None
+    sqrtvar = None
+    normalized_x = None
     if training:
         # calc mean
         mean = np.mean(inputs_data, axis=0)
@@ -311,10 +325,6 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
         normalized_x = xmu / sqrtvar
         outputs = gamma.data * normalized_x + beta.data
 
-        inputs.cache['xmu'] = xmu
-        inputs.cache['axis'] = axis
-        inputs.cache['sqrtvar'] = sqrtvar
-        inputs.cache['normalized_x'] = normalized_x
         inputs.cache['moving_mean'] = momentum * inputs.cache['moving_mean'].data + (1 - momentum) * mean
         inputs.cache['moving_variance'] = momentum * inputs.cache['moving_variance'].data + (1 - momentum) * var
 
@@ -328,11 +338,16 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
         # for instance,outputs:(N,W,H,C), self.axis=1, after swapaxes,outputs:(N,C,H,W)
         outputs = np.swapaxes(outputs, axis, -1)
 
-    outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
-    if outputs.requires_grad:
+    outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
+    outputs.set_variables([gamma, beta])
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
+        outputs.cache['xmu'] = xmu
+        outputs.cache['axis'] = axis
+        outputs.cache['sqrtvar'] = sqrtvar
+        outputs.cache['normalized_x'] = normalized_x
         outputs.grad_fn = Batchnorm2DBackward
-        initialize_ops_grad(inputs)
-        inputs.out_bounds.append(outputs)
+        initialize_ops_grad(inputs, gamma, beta)
     return outputs
 
 
@@ -348,17 +363,17 @@ def layernorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: boo
     sqrtvar = np.sqrt(var + epsilon)
     normalized_x = xmu / sqrtvar
     outputs = gamma.data * normalized_x + beta.data
-    if training:
-        inputs.cache['shape_field'] = shape_field
-        inputs.cache['xmu'] = xmu
-        inputs.cache['sqrtvar'] = sqrtvar
-        inputs.cache['normalized_x'] = normalized_x
 
-    outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
-    if outputs.requires_grad:
+    outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
+    outputs.set_variables([gamma, beta])
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
+        outputs.cache['shape_field'] = shape_field
+        outputs.cache['xmu'] = xmu
+        outputs.cache['sqrtvar'] = sqrtvar
+        outputs.cache['normalized_x'] = normalized_x
         outputs.grad_fn = Layernorm2DBackward
-        initialize_ops_grad(inputs)
-        inputs.out_bounds.append(outputs)
+        initialize_ops_grad(inputs, gamma, beta)
     return outputs
 
 
@@ -375,21 +390,21 @@ def groupnorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: boo
     x_group_norm = xgmu / sqrtvar
     x_norm = np.reshape(x_group_norm, (n, c, h, w))
     outputs = gamma.data * x_norm + beta.data
-    if training:
-        inputs.cache['groups'] = groups
-        inputs.cache['xgmu'] = xgmu
-        inputs.cache['sqrtvar'] = sqrtvar
-        inputs.cache['x_norm'] = x_norm
 
-    outputs = Variable(data=outputs, in_bounds=[inputs, gamma, beta], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
-    if outputs.requires_grad:
+    outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
+    outputs.set_variables([gamma, beta])
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
+        outputs.cache['groups'] = groups
+        outputs.cache['xgmu'] = xgmu
+        outputs.cache['sqrtvar'] = sqrtvar
+        outputs.cache['x_norm'] = x_norm
         outputs.grad_fn = Layernorm2DBackward
-        initialize_ops_grad(inputs)
-        inputs.out_bounds.append(outputs)
+        initialize_ops_grad(inputs, gamma, beta)
     return outputs
 
 
-def reshape(inputs: Variable, shape: Tuple, inplace: bool = True):
+def reshape(inputs: Variable, shape: Tuple, inplace: bool = True, training: bool = True):
     if inplace:
         inputs.cache['inplace'] = inplace
         inputs.cache['input_shape'] = inputs.shape
@@ -397,11 +412,11 @@ def reshape(inputs: Variable, shape: Tuple, inplace: bool = True):
         inputs.shape = inputs.data.shape
         return inputs
     outputs = Variable(data=np.reshape(inputs.data, shape), in_bounds=[inputs, ], requires_grad=inputs.requires_grad)
-    if outputs.requires_grad:
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
         outputs.cache['inplace'] = inplace
         outputs.grad_fn = ReshapeBackward
         initialize_ops_grad(inputs)
-        inputs.out_bounds.append(outputs)
     return outputs
 
 

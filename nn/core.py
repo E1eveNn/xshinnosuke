@@ -17,9 +17,6 @@ class Node:
         :param name: tensor的名字，字符串
         :param requires_grad: 需不需要梯度， 布尔值
         """
-
-        # 下面第一行这句话的意思是如果传递了in_bounds参数，那就把传递的in_bounds先包装为数组，在赋给类成员in_bounds，否则的话初始化类成员in_bounds为空数组，如果c++写的话大概是这样：
-        # this->in_bounds = in_bounds == NULL ?  vector<Template> : vector<Template>(in_bounds)
         self.in_bounds = [] if in_bounds is None else list(in_bounds)
         self.out_bounds = [] if out_bounds is None else list(out_bounds)
         self.data = data
@@ -36,6 +33,14 @@ class Node:
         self.cache = {}
         # bp后是否需要保存梯度
         self.retain = False
+        # 计算得到该Node所需要的参数，比如weight, bias
+        self.__variables = []
+
+    def get_variables(self):
+        return self.__variables
+
+    def set_variables(self, variables: List):
+        self.__variables = variables
 
     def retain_grad(self):
         self.retain = True
@@ -70,14 +75,14 @@ class Node:
     # 加法
     def __add__(self, other):
         # 全局运算图
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         return add(self, other)
 
     # 加等于
     def __iadd__(self, other):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
 
         self.data += other.data
         self.in_bounds.append(other)
@@ -98,26 +103,26 @@ class Node:
 
     # 取负号
     def __neg__(self):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         return neg(self)
 
     # 减法
     def __sub__(self, other):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         return sub(self, other)
 
     # 乘法
     def __mul__(self, other):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         return mul(self, other)
 
     # 幂
     def __pow__(self, power: int, modulo=None):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         outputs = Variable(in_bounds=[self, ], data=np.power(self.data, power), requires_grad=True)
         # 绑定反向求梯度的函数
         outputs.grad_fn = PowBackward
@@ -145,12 +150,12 @@ class Node:
                 raise ValueError('grad can be implicitly created only for scalar outputs')
 
         # self.grad_fn(self)
-        if GlobalGraph.outputs is None:
-            GlobalGraph.outputs = self
-        if GlobalGraph.inputs is not None:
+        if GlobalGraph.OUTPUTS is None:
+            GlobalGraph.OUTPUTS = self
+        if GlobalGraph.INPUTS is not None:
             graph = GlobalGraph.build_graph()
-            GlobalGraph.inputs.retain_grad()
-            GlobalGraph.outputs.retain_grad()
+            GlobalGraph.INPUTS.retain_grad()
+            GlobalGraph.OUTPUTS.retain_grad()
             for node in reversed(graph):
                 if node.grad_fn is not None:
                     node.grad_fn(node)
@@ -179,8 +184,8 @@ class Node:
 
     # 矩阵乘
     def matmul(self, other):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         outputs_data = np.dot(self.data, other.data)
         outputs = Variable(data=outputs_data, in_bounds=[self, other], requires_grad=self.requires_grad or other.requires_grad)
         if outputs.requires_grad:
@@ -195,8 +200,8 @@ class Node:
 
     # 转置
     def t(self):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         outputs = Variable(data=self.data.T, in_bounds=[self, ], requires_grad=self.requires_grad)
         if outputs.requires_grad:
             outputs.grad_fn = TransposeBackward
@@ -206,8 +211,8 @@ class Node:
 
     # 求和
     def sum(self, axis: int = None, keepdims: bool = False):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         # 在哪个axis（维度）上求和
         if axis is None:
             sum_value = np.sum(self.data, keepdims=keepdims)
@@ -224,8 +229,8 @@ class Node:
 
     # 求均值
     def mean(self, axis: int = None, keepdims: bool = False):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
 
         if axis is None:
             mean_value = np.mean(self.data, keepdims=keepdims)
@@ -242,8 +247,8 @@ class Node:
 
     # 求绝对值
     def abs(self):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
 
         outputs = Variable(in_bounds=[self, ], data=np.abs(self.data), requires_grad=self.requires_grad)
         if outputs.requires_grad:
@@ -255,8 +260,8 @@ class Node:
 
     # reshape，传入的参数应该是一个list或者tuple
     def view(self, *shapes):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
 
         outputs = Variable(in_bounds=[self, ], data=self.data.reshape(*shapes), requires_grad=self.requires_grad)
         if outputs.requires_grad:
@@ -268,8 +273,8 @@ class Node:
 
     # 求log
     def log(self, base: int = 2):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
 
         # 这里可能需要重载一下, base可选为2， 10和'e'
         if base == 2:
@@ -290,8 +295,8 @@ class Node:
 
     # 求exp
     def exp(self):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
 
         outputs = Variable(in_bounds=[self, ], data=np.exp(self.data), requires_grad=self.requires_grad)
         if outputs.requires_grad:
@@ -302,8 +307,8 @@ class Node:
         return outputs
 
     def max(self, axis=None, **kwargs):
-        if GlobalGraph.inputs is None:
-            GlobalGraph.inputs = self
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
         requires_grad = kwargs.pop('requires_grad', False)
         keepdims = kwargs.pop('keepdims', False)
         outputs = Variable(in_bounds=[self, ], data=np.max(self.data, axis=axis, keepdims=keepdims),
@@ -447,18 +452,14 @@ class Layer:
                 total_params += v.data.size
         return total_params
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args) -> Variable:
+    def forward(self, x: Variable = None, *args) -> Variable:
         # x代表本层的输入variable
         raise NotImplemented
 
     # 做一些forward后的初始化工作，每个子类forward后都会调用该函数
-    def connect_init(self, data: Variable, is_training: bool = True):
+    def feed_variable_to_next_layers(self, data: Variable):
         for out_bound in self.out_bounds:
             out_bound.input_data = data
-
-        if self.data.requires_grad and is_training:
-            initialize_ops_grad(self.data)
-            initialize_ops_grad(*self.variables)
 
     def backward(self, gradients: GlobalGraph.np.ndarray = None):
         for inbound in self.in_bounds:
@@ -549,8 +550,8 @@ def mul(x: Variable, y: Variable) -> Variable:
 
 
 def slices(x, item):
-    if GlobalGraph.inputs is None:
-        GlobalGraph.inputs = x
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = x
     ret = Variable(data=x.data[item], in_bounds=[x, ], requires_grad=x.requires_grad)
     if ret.requires_grad:
         x.out_bounds.append(ret)

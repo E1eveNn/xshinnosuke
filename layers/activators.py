@@ -1,6 +1,7 @@
 from ..nn.core import Layer, Variable
 from ..nn.grad_fn import ReluBackward, SigmoidBackward, TanhBackward
 from ..nn.functional import relu, sigmoid, tanh
+from ..nn import global_graph as GlobalGraph
 
 
 class Activation(Layer):
@@ -10,8 +11,7 @@ class Activation(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
-            output = self.activation.forward(inbound, is_training=is_training)
+            output = self.activation.forward(inbound)
             # output是一个Variable
             return output
         super(Activation, self).__call__(inbound)
@@ -20,11 +20,11 @@ class Activation(Layer):
     def compute_output_shape(self, input_shape=None):
         return input_shape
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = self.activation.forward(self.input_data)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -38,15 +38,14 @@ class ReLU(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
-            return self.forward(inbound, is_training=is_training)
+            return self.forward(inbound)
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = relu(self.input_data, inplace=self.inplace)
+        self.data = relu(self.input_data, self.inplace, GlobalGraph.IS_TRAINING)
         self.data.cache['inplace'] = self.inplace
         if self.inplace:
             if 'grad_fn' not in self.data.cache:
@@ -54,7 +53,7 @@ class ReLU(Layer):
             self.data.cache['grad_fn'].append(self.data.grad_fn)
             self.data.cache['mask'] = self.input_data.data < 0
             self.data.grad_fn = ReluBackward
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, output: Variable = None):
@@ -63,40 +62,18 @@ class ReLU(Layer):
         ReluBackward(self.data)
 
 
-class Linear(Layer):
-    def __call__(self, inbound, *args, **kwargs):
-        if isinstance(inbound, Variable):
-            return inbound
-        super().__call__(inbound)
-        return self
-
-    def forward(self, x: Variable = None, is_training=True, *args):
-        if x is not None:
-            self.input_data = x
-        self.data = self.input_data
-        self.connect_init(self.data, is_training)
-        return self.data
-
-    def backward(self, output: Variable = None):
-        if output is not None:
-            self.data = output
-        self.input_data.grad = self.data.grad
-        return self.input_data
-
-
 class Sigmoid(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
-            return self.forward(inbound, is_training=is_training)
+            return self.forward(inbound)
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = sigmoid(self.input_data)
-        self.connect_init(self.data, is_training)
+        self.data = sigmoid(self.input_data, GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, output: Variable = None):
@@ -108,16 +85,15 @@ class Sigmoid(Layer):
 class Tanh(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
-            return self.forward(inbound, is_training=is_training)
+            return self.forward(inbound)
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = tanh(self.input_data)
-        self.connect_init(self.data, is_training)
+        self.data = tanh(self.input_data, GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, output: Variable = None):
@@ -131,8 +107,6 @@ def get_activator(activator):
         activator = activator.lower()
         if activator == 'relu':
             return ReLU()
-        elif activator == 'linear':
-            return Linear()
         elif activator == 'sigmoid':
             return Sigmoid()
         elif activator == 'tanh':

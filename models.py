@@ -3,7 +3,7 @@ from .nn.optimizers import get_optimizer
 from .utils.toolkit import *
 from .nn.core import Variable, Layer
 from .nn.functional import concatenate
-from .nn.global_graph import np, topological_sort
+from .nn import global_graph as GlobalGraph
 import time
 import pickle
 from typing import Tuple
@@ -11,40 +11,39 @@ from typing import Tuple
 
 class Base:
     def __init__(self):
-        self.is_training = True
+        self.variables = set()
+        self.graph = None  # Layer数组
 
     def train(self):
-        self.is_training = True
+        GlobalGraph.IS_TRAINING = True
 
     def eval(self):
-        self.is_training = False
+        GlobalGraph.IS_TRAINING = False
 
 
 class _Model:
     def __init__(self):
-        self.variables = []
-        self.trainable_variables = []  # Variable数组
         self.loss = None  # Variable
         self.optimizer = None  # Optimizer类型
-        self.graph = None  # Layer数组
+        self.variables = set()
 
     def compile(self, optimizer, loss):
         raise NotImplemented
 
     def fit(self,
-            x: np.ndarray,
-            y: np.ndarray,
+            x: GlobalGraph.np.ndarray,
+            y: GlobalGraph.np.ndarray,
             batch_size: int = None,
             epochs: int = 1,
             verbose: int = 1,
             shuffle: bool = True,
-            validation_data: Tuple[np.ndarray] = None,
+            validation_data: Tuple[GlobalGraph.np.ndarray] = None,
             validation_split: float = 0.,
             initial_epoch: int = 0,
             ) -> dict:
 
-        x = np.asarray(x)
-        y = np.asarray(y)
+        x = GlobalGraph.np.asarray(x)
+        y = GlobalGraph.np.asarray(y)
         if validation_data is None and 0. < validation_split < 1.:
             split = int(x.shape[0] * validation_split)
             valid_x, valid_y = x[-split:], y[-split:]
@@ -115,9 +114,9 @@ class _Model:
         for layer in reversed(self.graph):
             layer.backward()
 
-    def evaluate(self, x: np.ndarray, y: np.ndarray, batch_size: int = None):
-        x = np.asarray(x)
-        y = np.asarray(y)
+    def evaluate(self, x: GlobalGraph.np.ndarray, y: GlobalGraph.np.ndarray, batch_size: int = None):
+        x = GlobalGraph.np.asarray(x)
+        y = GlobalGraph.np.asarray(y)
         if batch_size is not None:
             assert type(batch_size) is int
             val_dataset = DataSet(x, y)
@@ -130,15 +129,15 @@ class _Model:
                 acc_list.append(metric[0])
                 loss_list.append(metric[1])
 
-            acc = np.array(acc_list).mean().tolist()
-            loss = np.array(loss_list).mean().tolist()
+            acc = GlobalGraph.np.array(acc_list).mean().tolist()
+            loss = GlobalGraph.np.array(loss_list).mean().tolist()
         else:
             y_pred = self.forward(x, is_training=False)
             acc, loss = self.loss.metric(y_pred, y)
 
         return acc, loss
 
-    def predict(self, x: np.ndarray, batch_size: int = None):
+    def predict(self, x: GlobalGraph.np.ndarray, batch_size: int = None):
         if batch_size is not None:
             assert type(batch_size) is int
             test_dataset = DataSet(x)
@@ -174,13 +173,11 @@ class _Model:
         print('*' * bar_nums)
         print('Layer(type)'.ljust(25), 'Output Shape'.ljust(20), 'Param'.ljust(10), 'Connected to'.ljust(15))
         print('#' * bar_nums)
-        total_params = 0
         if self.graph is None:
             raise ValueError('Please compile Model!')
         for layer in self.graph:
             layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
             params = layer.params_count()
-            total_params += params
             first = True
             if layer.in_bounds:
                 for prev_layer in layer.in_bounds:
@@ -201,9 +198,12 @@ class _Model:
             print('-' * bar_nums)
 
         print('*' * bar_nums)
+        total_params = 0
         trainable_params = 0
-        for v in self.trainable_variables:
-            trainable_params += v.data.size
+        for v in self.variables:
+            total_params += v.data.size
+            if v.requires_grad:
+                trainable_params += v.data.size
         params_details = 'Total params: %d\n' % total_params
         params_details += 'Trainable params: %d\n' % trainable_params
         params_details += 'Non-trainable params: %d\n' % (total_params - trainable_params)
@@ -226,19 +226,16 @@ class Sequential(_Model, Base):
             layer.initial_params()
             next_layer = layer
             for v in layer.variables:
-                if v is not None and v.requires_grad and v not in self.trainable_variables:
-                    self.trainable_variables.append(v)
-                self.variables.append(v)
+                if v is not None:
+                    self.variables.add(v)
         self.loss = get_objective(loss)
-        self.optimizer = get_optimizer(optimizer, **kwargs)
-        self.optimizer.trainable_variables = self.trainable_variables
+        self.optimizer = get_optimizer(optimizer, variables=self.variables, **kwargs)
 
     def forward(self, x, *args, **kwargs):
-        is_training = kwargs.pop('is_training', True)
         for layer in self.graph:
             if hasattr(layer, 'variables') and len(layer.variables) == 0:
                 layer.initial_params(x.shape[1:])
-            x = layer.forward(x, is_training=is_training or self.is_training)
+            x = layer.forward(x)
         return x
 
     def pop(self, index=-1):
@@ -255,32 +252,27 @@ class Model(_Model, Base):
 
     def compile(self, optimizer, loss, **kwargs):
         assert self.inputs is not None and self.outputs is not None
-        self.graph = topological_sort(self.inputs, self.outputs)
+        self.graph = GlobalGraph.topological_sort(self.inputs, self.outputs)
         for g in self.graph:
             g.initial_params()
             for v in g.variables:
-                if v is not None and v.requires_grad and v not in self.trainable_variables:
-                    self.trainable_variables.append(v)
-                self.variables.append(v)
+                if v is not None:
+                    self.variables.add(v)
         self.loss = get_objective(loss)
-        self.optimizer = get_optimizer(optimizer, **kwargs)
-        self.optimizer.trainable_variables = self.trainable_variables
+        self.optimizer = get_optimizer(optimizer, variables=self.variables, **kwargs)
 
     def forward(self, x: Variable, *args, **kwargs):
-        is_training = kwargs.pop('is_training', True)
+
         self.inputs.input_data = x
         outputs = None
         for layer in self.graph:
-            outputs = layer.forward(is_training=is_training or self.is_training)
+            outputs = layer.forward()
         return outputs
 
 
 class Module(Base):
     def __init__(self, *args):
         super().__init__()
-        self.variables = []
-        self.trainable_variables = []  # Variable数组
-        self.graph = None  # Layer数组
 
     def __call__(self, x: Variable, *args, **kwargs):
         out = self.forward(x)
@@ -298,10 +290,9 @@ class Module(Base):
             # 将该元素的邻接元素加入队尾
             for n in vertex.out_bounds:
                 if n not in seen:
-                    for v in n.in_bounds:
-                        if v is not None and v.requires_grad and v.name == 'xs_variable' and v not in self.trainable_variables:
-                            self.trainable_variables.append(v)
-                        self.variables.append(v)
+                    for v in n.get_variables():
+                        if v is not None:
+                            self.variables.add(v)
                     queue.append(n)
                     seen.add(n)
 
@@ -310,43 +301,3 @@ class Module(Base):
 
     def forward(self, x):
         raise NotImplemented
-
-    def __str__(self):
-        bar_nums = 75
-        print('*' * bar_nums)
-        print('Layer(type)'.ljust(25), 'Output Shape'.ljust(20), 'Param'.ljust(10), 'Connected to'.ljust(15))
-        print('#' * bar_nums)
-        total_params = 0
-        if self.graph is None:
-            raise ValueError('Please compile Model!')
-        for layer in self.graph:
-            layer_name = '%s (%s)' % (layer.name, layer.__class__.__name__)
-            params = layer.params_count()
-            total_params += params
-            first = True
-            if layer.in_bounds:
-                for prev_layer in layer.in_bounds:
-                    if prev_layer.name is not None:
-                        connected = prev_layer.name
-                    else:
-                        connected = prev_layer.__class__.__name__
-                    if first:
-                        print(layer_name.ljust(25), str((None,) + layer.shape).ljust(20), str(params).ljust(10),
-                              connected.ljust(15))
-                        first = False
-                    else:
-                        print(''.ljust(25), ''.ljust(20), ''.ljust(10), connected.ljust(15))
-            else:
-                connected = '\n'
-                print(layer_name.ljust(25), str((None,) + layer.shape).ljust(20), str(params).ljust(10),
-                      connected.ljust(15))
-            print('-' * bar_nums)
-
-        print('*' * bar_nums)
-        trainable_params = 0
-        for v in self.trainable_variables:
-            trainable_params += v.data.size
-        params_details = 'Total params: %d\n' % total_params
-        params_details += 'Trainable params: %d\n' % trainable_params
-        params_details += 'Non-trainable params: %d\n' % (total_params - trainable_params)
-        return params_details

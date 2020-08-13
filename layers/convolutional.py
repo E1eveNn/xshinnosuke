@@ -69,31 +69,31 @@ class Conv2D(Layer):
     def __call__(self, inbound, *args, **kwargs):
         # if isinstance(inbound, Variable):
         if inbound.data is not None:
-            if GlobalGraph.inputs is None:
-                GlobalGraph.inputs = inbound
+            if GlobalGraph.INPUTS is None:
+                GlobalGraph.INPUTS = inbound
 
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = conv2d(inbound, self.variables[0], self.variables[1], self.stride, self.pad_size)
+            output = conv2d(inbound, self.variables[0], self.variables[1], self.stride, self.pad_size, GlobalGraph.IS_TRAINING)
             if self.activation is not None:
-                output = self.activation.__call__(output)
+                output = self.activation.forward(output)
             # output是一个Variable
             return output
 
         super(Conv2D, self).__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         w, b = self.variables
-        self.data = conv2d(self.input_data, w, b, self.stride, self.pad_size)
+        self.data = conv2d(self.input_data, w, b, self.stride, self.pad_size, GlobalGraph.IS_TRAINING)
         if self.activation is not None:
             output = self.activation.forward(self.data)
-            self.connect_init(output, is_training)
+            self.feed_variable_to_next_layers(output)
             return output
         else:
-            self.connect_init(self.data, is_training)
+            self.feed_variable_to_next_layers(self.data)
             return self.data
 
     def backward(self, gradients=None):
@@ -127,17 +127,17 @@ class MaxPooling2D(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            output = max_pool2d(inbound, self.kernel_size, self.stride, self.padding)
+            output = max_pool2d(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
             # output是一个Variable
             return output
         super(MaxPooling2D, self).__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = max_pool2d(self.input_data, self.kernel_size, self.stride, self.padding)
-        self.connect_init(self.data, is_training)
+        self.data = max_pool2d(self.input_data, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -164,17 +164,17 @@ class AvgPooling2D(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            output = avg_pool2d(inbound, self.kernel_size, self.stride, self.padding)
+            output = avg_pool2d(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
             # output是一个Variable
             return output
         super(AvgPooling2D, self).__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = avg_pool2d(self.input_data, self.kernel_size, self.stride, self.padding)
-        self.connect_init(self.data, is_training)
+        self.data = avg_pool2d(self.input_data, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -200,17 +200,17 @@ class ChannelMaxPooling(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding)
+            output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
             # output是一个Variable
             return output
         super(ChannelMaxPooling, self).__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = channel_max_pool(self.input_data, self.kernel_size, self.stride, self.padding)
-        self.connect_init(self.data, is_training)
+        self.data = channel_max_pool(self.input_data, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -236,17 +236,17 @@ class ChannelAvgPooling(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding)
+            output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
             # output是一个Variable
             return output
         super(ChannelAvgPooling, self).__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = channel_max_pool(self.input_data, self.kernel_size, self.stride, self.padding)
-        self.connect_init(self.data, is_training)
+        self.data = channel_max_pool(self.input_data, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):

@@ -2,6 +2,7 @@ from ..nn.core import Layer, Variable
 from ..nn.initializers import get_initializer
 from ..nn.functional import dropout2d, batchnorm2d, layernorm2d, groupnorm2d
 from ..nn.grad_fn import Dropout2DBackward, Batchnorm2DBackward, Layernorm2DBackward, Groupnorm2DBackward
+from ..nn import global_graph as GlobalGraph
 
 
 class Dropout(Layer):
@@ -13,18 +14,17 @@ class Dropout(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
-            output = dropout2d(inbound, self.keep_prob, training=is_training)
+            output = dropout2d(inbound, self.keep_prob)
             # output是一个Variable
             return output
         super(Dropout, self).__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = dropout2d(self.input_data, self.keep_prob, is_training)
-        self.connect_init(self.data, is_training)
+        self.data = dropout2d(self.input_data, self.keep_prob, GlobalGraph.IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -62,22 +62,21 @@ class BatchNormalization(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = batchnorm2d(inbound, self.variables[0], self.variables[1], self.axis, self.epsilon, is_training,
+            output = batchnorm2d(inbound, self.variables[0], self.variables[1], self.axis, self.epsilon, GlobalGraph.IS_TRAINING,
                                  self.momentum, self.moving_mean, self.moving_variance)
             return output
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
 
         self.data = batchnorm2d(self.input_data, self.variables[0], self.variables[1], self.axis, self.epsilon,
-                                is_training, self.momentum, self.moving_mean, self.moving_variance)
-        self.connect_init(self.data, is_training)
+                                GlobalGraph.IS_TRAINING, self.momentum, self.moving_mean, self.moving_variance)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -101,20 +100,19 @@ class LayerNormalization(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = layernorm2d(inbound, self.variables[0], self.variables[1], is_training, self.epsilon)
+            output = layernorm2d(inbound, self.variables[0], self.variables[1], GlobalGraph.IS_TRAINING, self.epsilon)
             return output
         Layer.__call__(self, inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
 
-        self.data = layernorm2d(self.input_data, self.variables[0], self.variables[1], is_training, self.epsilon)
-        self.connect_init(self.data, is_training)
+        self.data = layernorm2d(self.input_data, self.variables[0], self.variables[1], GlobalGraph.IS_TRAINING, self.epsilon)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -141,20 +139,19 @@ class GroupNormalization(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            is_training = kwargs.pop('is_training', True)
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
-            output = groupnorm2d(inbound, self.variables[0], self.variables[1], is_training, self.epsilon, self.G)
+            output = groupnorm2d(inbound, self.variables[0], self.variables[1], GlobalGraph.IS_TRAINING, self.epsilon, self.G)
             return output
         Layer.__call__(self, inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
 
-        self.data = groupnorm2d(self.input_data, self.variables[0], self.variables[1], is_training, self.epsilon, self.G)
-        self.connect_init(self.data, is_training)
+        self.data = groupnorm2d(self.input_data, self.variables[0], self.variables[1], GlobalGraph.IS_TRAINING, self.epsilon, self.G)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):

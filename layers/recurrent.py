@@ -3,7 +3,7 @@ from .activators import get_activator
 from ..nn.initializers import get_initializer, ones
 from ..nn.functional import concatenate
 from ..nn.toolkit import initialize_ops_grad
-from ..nn.global_graph import np
+from ..nn.global_graph import np, IS_TRAINING
 from typing import Union, List, Tuple
 
 
@@ -22,7 +22,7 @@ class Cell:
     def initial_params(self, input_shape=None):
         pass
 
-    def forward(self, x: Variable, is_training: bool, stateful: bool):
+    def forward(self, x: Variable, stateful: bool):
         pass
 
     def backward(self, outputs: Variable, inputs: Variable, return_sequences: bool):
@@ -66,16 +66,16 @@ class Recurrent(Layer):
         time_steps, n_vec = self.input_shape
         self.variables = self.cell.initial_params((n_vec, self.cell.units))
 
-    def forward(self, x: Variable = None, is_training=True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        output = self.cell.forward(self.input_data, is_training, self.stateful)
+        output = self.cell.forward(self.input_data, self.stateful)
         if self.return_sequences:
             self.data = output
         else:
             self.data = output[:, -1, :]
 
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         if self.return_sequences:
             return self.data, self.cell.prev_a
         return self.data
@@ -106,10 +106,10 @@ class SimpleRNNCell(Cell):
         self.variables.append(ba)
         return self.variables
 
-    def forward(self, x: Variable, is_training: bool, stateful: bool):
+    def forward(self, x: Variable, stateful: bool):
         batch_nums, time_steps, n_vec = x.data.shape
         Wxa, Waa, ba = self.variables
-        if is_training:
+        if IS_TRAINING:
             self.time_steps = time_steps
             if self.__first_initialize:
                 # first initialize prev_a
@@ -236,10 +236,10 @@ class LSTMCell(Cell):
         self.variables.append(b)
         return self.variables
 
-    def forward(self, x: Variable, is_training: bool, stateful: bool):
+    def forward(self, x: Variable, stateful: bool):
         batch_nums, time_steps, n_vec = x.data.shape
         W, b = self.variables
-        if is_training:
+        if IS_TRAINING:
             self.time_steps = time_steps
             if self.__first_initialize:
                 # first intialize prev_a

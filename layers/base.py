@@ -1,6 +1,6 @@
 from ..nn.core import Layer, Variable
-from ..nn.global_graph import np
-from ..nn.functional import pad_2d, reshape
+from ..nn.global_graph import np, IS_TRAINING
+from ..nn.functional import pad_2d, reshape, initialize_ops_grad
 from ..nn.grad_fn import Pad2DBackward, NegBackward, MultiplyBackward, MatmulBackward, LogBackward, ExpBackward, SumBackward, MeanBackward, AbsBackward, PowBackward, ReshapeBackward
 from typing import Tuple, Union, List
 
@@ -21,11 +21,11 @@ class Input(Layer):
             return self.input_shape
         return input_shape
 
-    def forward(self, x: Variable = None, is_training:bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = self.input_data
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
 
@@ -41,7 +41,7 @@ class ZeroPadding2D(Layer):
 
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
-            output = pad_2d(inbound, (self.pad_h, self.pad_w))
+            output = pad_2d(inbound, (self.pad_h, self.pad_w), IS_TRAINING)
             # output是一个Variable
             return output
         super(ZeroPadding2D, self).__call__(inbound)
@@ -51,11 +51,11 @@ class ZeroPadding2D(Layer):
         c, h, w = input_shape
         return c, h + 2 * self.pad_h, w + 2 * self.pad_w
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = pad_2d(self.input_data, (self.pad_h, self.pad_w))
-        self.connect_init(self.data, is_training)
+        self.data = pad_2d(self.input_data, (self.pad_h, self.pad_w), IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -71,14 +71,19 @@ class Add(Layer):
             self.shape = inbound.shape
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         data = 0
+        requires_grad = self.in_bounds[0].data.requires_grad
         for in_bound in self.in_bounds:
             data += in_bound.data.data
-        self.data = Variable(data, in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+            requires_grad = requires_grad or in_bound.data.requires_grad
+        self.data = Variable(data, in_bounds=self.in_bounds, requires_grad=requires_grad)
+        if IS_TRAINING and requires_grad:
+            for in_bound in self.in_bounds:
+                initialize_ops_grad(in_bound.data)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -92,11 +97,11 @@ class Negative(Layer):
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = Variable(data=-self.input_data.data, in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -109,14 +114,14 @@ class Multiply(Layer):
             super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         data = 1
         for in_bound in self.in_bounds:
             data = np.multiply(data, in_bound.data)
         self.data = Variable(data=data, in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -135,12 +140,12 @@ class Matmul(Layer):
         self.shape = inbounds[0].shape[:-1] + inbounds[-1].shape[1:]
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         data = self.in_bounds[0].data.dot(self.in_bounds[1].data)
         self.data = Variable(data=data, in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -164,7 +169,7 @@ class Log(Layer):
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
 
@@ -175,7 +180,7 @@ class Log(Layer):
         else:
             data = np.log(self.in_bounds[0].data)
         self.data = Variable(data=data, in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -187,11 +192,11 @@ class Exp(Layer):
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = Variable(data=np.exp(self.in_bounds[0].data), in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -206,11 +211,11 @@ class Sum(Layer):
     def compute_output_shape(self, input_shape: Union[List, Tuple] = None) -> Union[List, Tuple]:
         return tuple([1])
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = Variable(data=np.sum(self.in_bounds[0].data), in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -225,11 +230,11 @@ class Mean(Layer):
     def compute_output_shape(self, input_shape: Union[List, Tuple] = None) -> Union[List, Tuple]:
         return tuple([1])
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = Variable(data=np.mean(self.in_bounds[0].data), in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -241,11 +246,11 @@ class Abs(Layer):
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = Variable(data=np.abs(self.in_bounds[0].data), in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -261,11 +266,11 @@ class Pow(Layer):
         super().__call__(inbound)
         return self
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
         self.data = Variable(data=np.power(self.in_bounds[0].data, self.exponent), in_bounds=self.in_bounds)
-        self.connect_init(self.data, is_training)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):
@@ -280,18 +285,18 @@ class Reshape(Layer):
 
     def __call__(self, inbound: Layer, *args, **kwargs):
         if isinstance(inbound, Variable):
-            return reshape(inbound, (-1, ) + self.shape, self.inplace)
+            return reshape(inbound, (-1, ) + self.shape, self.inplace, IS_TRAINING)
         super().__call__(inbound)
         return self
 
     def compute_output_shape(self, input_shape: Union[List, Tuple] = None) -> Union[List, Tuple]:
         return self.shape
 
-    def forward(self, x: Variable = None, is_training: bool = True, *args):
+    def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        self.data = reshape(self.input_data, (-1, ) + self.shape, self.inplace)
-        self.connect_init(self.data, is_training)
+        self.data = reshape(self.input_data, (-1, ) + self.shape, self.inplace, IS_TRAINING)
+        self.feed_variable_to_next_layers(self.data)
         return self.data
 
     def backward(self, gradients=None):

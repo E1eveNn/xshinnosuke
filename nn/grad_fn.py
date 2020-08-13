@@ -172,7 +172,8 @@ def FlattenBackward(outputs):
 
 
 def DenseBackward(outputs):
-    inputs, weight, bias = outputs.in_bounds
+    inputs, = outputs.in_bounds
+    weight, bias = outputs.get_variables()
     # 正向传播时是 inputs -> dense -> outputs
     if weight.requires_grad:
         weight.grad += inputs.data.T.dot(outputs.grad)
@@ -183,13 +184,15 @@ def DenseBackward(outputs):
 
 
 def EmbeddingBackward(outputs):
-    inputs, weight = outputs.in_bounds
+    inputs,  = outputs.in_bounds
+    weight, = outputs.get_variables()
     if weight.requires_grad:
         weight.grad[inputs.data.astype(np.int)] += outputs.grad
 
 
 def Conv2DBackward(outputs):
-    inputs, weight, bias = outputs.in_bounds
+    inputs, = outputs.in_bounds
+    weight, bias = outputs.get_variables()
     n, in_channels, h, w = inputs.data.shape
     out_channels, _, kernel_h, kernel_w = weight.data.shape
     _, _, out_h, out_w = outputs.grad.shape
@@ -309,14 +312,15 @@ def Dropout2DBackward(outputs):
 
 
 def Batchnorm2DBackward(outputs):
-    inputs, gamma, beta = outputs.in_bounds
+    inputs,  = outputs.in_bounds
+    gamma, beta = outputs.get_variables()
     if inputs.requires_grad:
         grad = outputs.grad
         ndim = grad.ndim
-        axis = inputs.cache['axis']
-        xmu = inputs.cache['xmu']
-        sqrtvar = inputs.cache['sqrtvar']
-        normalized_x = inputs.cache['normalized_x']
+        axis = outputs.cache['axis']
+        xmu = outputs.cache['xmu']
+        sqrtvar = outputs.cache['sqrtvar']
+        normalized_x = outputs.cache['normalized_x']
         if not (axis == -1 or axis == ndim - 1):
             # for instance,inputs:(N,C,H,W),self.axis=1,after swapaxes,Inputs:(N,W,H,C)
             grad = np.swapaxes(grad, axis, -1)
@@ -347,7 +351,8 @@ def Batchnorm2DBackward(outputs):
 
 
 def Layernorm2DBackward(outputs):
-    inputs, gamma, beta = outputs.in_bounds
+    inputs, = outputs.in_bounds
+    gamma, beta = outputs.get_variables()
     grad = outputs.grad
     if gamma.requires_grad:
         normalized_x = inputs.cache['normalized_x']
@@ -356,10 +361,10 @@ def Layernorm2DBackward(outputs):
         beta.grad += np.sum(grad, axis=0)
 
     if inputs.requires_grad:
-        xmu = inputs.cache['xmu']
-        sqrtvar = inputs.cache['sqrtvar']
-        normalized_x = inputs.cache['normalized_x']
-        shape_field = inputs.cache['shape_field']
+        xmu = outputs.cache['xmu']
+        sqrtvar = outputs.cache['sqrtvar']
+        normalized_x = outputs.cache['normalized_x']
+        shape_field = outputs.cache['shape_field']
         std_inv = 1. / sqrtvar
         N = reduce(lambda x, y: x * y, normalized_x.shape[1:])
 
@@ -376,19 +381,20 @@ def Layernorm2DBackward(outputs):
 
 
 def Groupnorm2DBackward(outputs):
-    inputs, gamma, beta = outputs.in_bounds
+    inputs, = outputs.in_bounds
+    gamma, beta = outputs.get_variables()
     grad = outputs.grad
     if gamma.requires_grad:
-        x_norm = inputs.cache['x_norm']
+        x_norm = outputs.cache['x_norm']
         gamma.grad += np.sum(grad * x_norm, axis=(0, 2, 3), keepdims=True)
     if beta.requires_grad:
         beta.grad += np.sum(grad, axis=(0, 2, 3), keepdims=True)
 
     if inputs.requires_grad:
         n, c, h, w = grad.shape
-        groups = inputs.cache['groups']
-        sqrtvar = inputs.cache['sqrtvar']
-        xgmu = inputs.cache['xgmu']
+        groups = outputs.cache['groups']
+        sqrtvar = outputs.cache['sqrtvar']
+        xgmu = outputs.cache['xgmu']
         std_inv = 1. / sqrtvar
         # dx_group_norm
         dx_norm = grad * gamma.data  # (N,C,H,W)
