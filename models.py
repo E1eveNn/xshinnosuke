@@ -22,6 +22,7 @@ class Base:
 
 class _Model:
     def __init__(self):
+        self.variables = []
         self.trainable_variables = []  # Variable数组
         self.loss = None  # Variable
         self.optimizer = None  # Optimizer类型
@@ -227,6 +228,7 @@ class Sequential(_Model, Base):
             for v in layer.variables:
                 if v is not None and v.requires_grad and v not in self.trainable_variables:
                     self.trainable_variables.append(v)
+                self.variables.append(v)
         self.loss = get_objective(loss)
         self.optimizer = get_optimizer(optimizer, **kwargs)
         self.optimizer.trainable_variables = self.trainable_variables
@@ -259,6 +261,7 @@ class Model(_Model, Base):
             for v in g.variables:
                 if v is not None and v.requires_grad and v not in self.trainable_variables:
                     self.trainable_variables.append(v)
+                self.variables.append(v)
         self.loss = get_objective(loss)
         self.optimizer = get_optimizer(optimizer, **kwargs)
         self.optimizer.trainable_variables = self.trainable_variables
@@ -275,15 +278,16 @@ class Model(_Model, Base):
 class Module(Base):
     def __init__(self, *args):
         super().__init__()
+        self.variables = []
         self.trainable_variables = []  # Variable数组
         self.graph = None  # Layer数组
 
     def __call__(self, x: Variable, *args, **kwargs):
         out = self.forward(x)
-        self.__add_trainable_variables(x)
+        self.__collect_variables(x)
         return out
 
-    def __add_trainable_variables(self, x: Variable):
+    def __collect_variables(self, x: Variable):
         # 用一个列表来模拟队列，然后bfs遍历统计所有的trainable_variables
         queue = [x]
         seen = set()  # 此处为set, python里set用的是hash table, 搜索时比数组要快。
@@ -297,12 +301,12 @@ class Module(Base):
                     for v in n.in_bounds:
                         if v is not None and v.requires_grad and v.name == 'xs_variable' and v not in self.trainable_variables:
                             self.trainable_variables.append(v)
-
+                        self.variables.append(v)
                     queue.append(n)
                     seen.add(n)
 
     def parameters(self):
-        return self.trainable_variables
+        return self.variables
 
     def forward(self, x):
         raise NotImplemented
