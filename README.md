@@ -1,8 +1,9 @@
 # XShinnosuke : Deep Learning Framework
 
 <div align=center>
-	<img src="https://gss1.bdstatic.com/9vo3dSag_xI4khGkpoWK1HF6hhy/baike/w%3D268%3Bg%3D0/sign=625eaa79a864034f0fcdc50097f81e0c/8c1001e93901213f91ab2a7857e736d12e2e95fd.jpg" width="">
+	<img src="https://github.com/eLeVeNnN/xshinnosuke/tree/master/docs/shinnosuke.jpg" width="">
 </div>
+
 
 
 
@@ -15,8 +16,8 @@ Here are some features of Shinnosuke:
 1. Based on **Cupy**(GPU version)/**Numpy**  and **native** to Python.  
 2. **Without** any other **3rd-party** deep learning library.
 3. **Keras and Pytorch style API**, easy to start.
-4. Supports commonly used layers such as: *Dense, Conv2D, MaxPooling2D, LSTM, SimpleRNN, etc*, and commonly used function: *conv2d, max_pool2d, relu, etc*.
-5. **Sequential** model (for most  sequence network combinations ) and **Functional** model (for resnet, etc) are implemented. Meanwhile, XShinnosuke also supports for design your own network by **Module**.
+4. Supports commonly used layers such as: **Dense, Conv2D, MaxPooling2D, LSTM, SimpleRNN, etc**, and commonly used function: **conv2d, max_pool2d, relu, etc**.
+5. **Sequential** in Pytorch and Keras, **Model** in Keras and **Module** in Pytorch, **all of them are supported** by xshinnosuke.
 6. Training and inference supports for both **dynamic graph** and **static graph**.
 7. **Autograd** is supported .
 
@@ -199,8 +200,8 @@ for epoch in range(EPOCH):
         loss = critetion(out, y)
         loss.backward()
         optimizer.step()
-        train_acc, train_loss = critetion.metric(out, y)
-        print(f'epoch -> {epoch}, train_acc: {train_acc}, train_loss: {train_loss}')
+        train_acc = critetion.acc(out, y)
+        print(f'epoch -> {epoch}, train_acc: {train_acc}, train_loss: {loss.data}')
 ```
 
 Building an image classification model, a question answering system or any other model is just as convenient and fast~
@@ -252,6 +253,24 @@ Then you can install XShinnosuke by using pip:
 
 
 ## Supports
+
+### functional
+
++ dense
++ relu
++ flatten
++ conv2d
++ max_pool2d
++ avg_pool2d
++ reshape
++ sigmoid
++ tanh
++ dropout2d
++ batchnorm2d
++ groupnorm2d
++ layernorm
++ pad_2d
++ embedding
 
 ### Two basic class:
 
