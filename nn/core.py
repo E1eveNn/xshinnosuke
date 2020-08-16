@@ -34,13 +34,13 @@ class Node:
         # bp后是否需要保存梯度
         self.retain = False
         # 计算得到该Node所需要的参数，比如weight, bias
-        self.__variables = []
+        self.__parameters = []
 
     def get_variables(self):
-        return self.__variables
+        return self.__parameters
 
     def set_variables(self, variables: List):
-        self.__variables = variables
+        self.__parameters = variables
 
     def retain_grad(self):
         self.retain = True

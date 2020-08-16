@@ -12,7 +12,6 @@ from typing import Tuple
 class Base:
     def __init__(self):
         self.variables = set()
-        self.graph = None  # Layer数组
 
     def train(self):
         GlobalGraph.IS_TRAINING = True
@@ -26,6 +25,7 @@ class _Model(Base):
         super().__init__()
         self.loss = None  # Variable
         self.optimizer = None  # Optimizer类型
+        self.graph = None  # Layer数组
 
     def compile(self, optimizer, loss):
         raise NotImplemented
