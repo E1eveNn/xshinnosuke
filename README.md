@@ -1,11 +1,8 @@
 # XShinnosuke : Deep Learning Framework
 
 <div align=center>
-	<img src="https://github.com/eLeVeNnN/xshinnosuke/tree/master/docs/shinnosuke.jpg" width="">
+	<img src="https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1597579280045&di=409d33924532df749524161e4c11f8b3&imgtype=0&src=http%3A%2F%2Fb-ssl.duitang.com%2Fuploads%2Fitem%2F201607%2F30%2F20160730144641_4UMvr.thumb.700_0.jpeg" width="400px" height="500px">
 </div>
-
-
-
 
 ## Descriptions
 
