@@ -214,7 +214,7 @@ class _Model(Base):
 
 
 class Sequential(_Model):
-    def __init__(self, *layers: Layer):
+    def __init__(self, layers: List[Layer] = None):
         super().__init__()
         self.graph = [] if layers is None else list(layers)
 
@@ -241,7 +241,7 @@ class Sequential(_Model):
             x = layer.forward(x)
         return x
 
-    def pop(self, index=-1):
+    def pop(self, index):
         layer = self.graph.pop(index)
         del layer
         print('success delete %s layer' % layer.__class__.__name__)
