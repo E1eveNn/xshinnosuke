@@ -197,7 +197,7 @@ for epoch in range(EPOCH):
         loss = critetion(out, y)
         loss.backward()
         optimizer.step()
-        train_acc = critetion.acc(out, y)
+        train_acc = critetion.calc_acc(out, y)
         print(f'epoch -> {epoch}, train_acc: {train_acc}, train_loss: {loss.data}')
 ```
 
