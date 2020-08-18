@@ -135,7 +135,7 @@ class _Model(Base):
             loss = GlobalGraph.np.array(loss_list).mean().tolist()
         else:
             y_pred = self.forward(Variable(x))
-            acc, loss = self.loss.metric(y_pred, y)
+            acc, loss = self.loss.metric(y_pred, Variable(y))
 
         return acc, loss
 
