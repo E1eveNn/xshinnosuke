@@ -8,7 +8,7 @@
 
 XShinnosuke is a high-level neural network framework which supports for both **Dynamic Graph** and **Static Graph**, and has almost the same API to **Keras** and **Pytorch** with *slightly differences*. **It was written by Python only**, and dedicated to realize experimentations quickly.
 
-Here are some features of Shinnosuke:
+Here are some features of XShinnosuke:
 
 1. Based on **Cupy**(GPU version)/**Numpy**  and **native** to Python.  
 2. **Without** any other **3rd-party** deep learning library.
@@ -18,9 +18,7 @@ Here are some features of Shinnosuke:
 6. Training and inference supports for both **dynamic graph** and **static graph**.
 7. **Autograd** is supported .
 
-XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**
-
-
+XShinnosuke is compatible with: **Python 3.x (3.7 is recommended)**                  [==> C++ version](https://github.com/eLeVeNnN/xshinnosuke_cpp)
 
 [1. API docs](https://elevennn.github.io/xshinnosuke/)       [2. Notebook](https://github.com/eLeVeNnN/xshinnosuke/blob/master/demos/examples/XShinnosuke-API.ipynb)
 
