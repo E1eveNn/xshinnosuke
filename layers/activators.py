@@ -12,7 +12,6 @@ class Activation(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = self.activation.forward(inbound)
-            # output是一个Variable
             return output
         super(Activation, self).__call__(inbound)
         return self

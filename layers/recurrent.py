@@ -11,14 +11,12 @@ class Cell:
     def __init__(self, units: int, activation: str = 'tanh', initializer: str = 'glorotuniform',
                  recurrent_initializer: str = 'orthogonal', **kwargs):
         self.units = units
-        # 不知道c++支持这样吗，比如有个变量a是由Variable这个类实例化的， 那么a.__class__就返回的是a的类，既Variable，然后使用self.activator_cls()和Variable()等价
         self.activation_cls = get_activator(activation).__class__
         self.initializer = get_initializer(initializer)
         self.recurrent_initializer = get_initializer(recurrent_initializer)
-        self.variables = []  # Variable数组
-        self.activations = []  # Activation这个类的数组
+        self.variables = []
+        self.activations = []
 
-    # 以下全都由子类实现
     def initial_params(self, input_shape=None):
         pass
 
@@ -36,14 +34,6 @@ class Recurrent(Layer):
     # Base class for Recurrent layer
     def __init__(self, cell: Cell, return_sequences: bool = False, return_state: bool = False, stateful: bool = False,
                  input_length: int = None, **kwargs):
-        '''
-        :param cell: A Cell object
-        :param return_sequences: return all output sequences if true,else return output sequences' last output
-        :param return_state:if true ,return last state
-        :param stateful:if true，the sequences last state will be used as next sequences initial state
-        :param input_length: input sequences' length
-        :param kwargs:
-        '''
         super(Recurrent, self).__init__(**kwargs)
         self.cell = cell
         self.return_sequences = return_sequences
@@ -188,11 +178,11 @@ class LSTMCell(Cell):
 
         self.recurrent_activation_cls = get_activator(recurrent_activation).__class__
         self.unit_forget_bias = unit_forget_bias
-        self.recurrent_activations = []  # Activation这个类的数组
-        self.activations = []  # Activation这个类的数组
+        self.recurrent_activations = []
+        self.activations = []
         self.__first_initialize = True  # bool
         self.time_steps = None  # int
-        # 以下都是ndarray，具体看reset_state()
+
         self.prev_a = None
         self.c = None
         self.tao_f = None
@@ -203,7 +193,6 @@ class LSTMCell(Cell):
     def initial_params(self, input_shape=None):
         n_in, n_out = input_shape
         # Wf_l means forget gate linear weight,Wf_r represents forget gate recurrent weight.
-
         # forget gate
         Wf_l = self.initializer((n_in, n_out))
         Wf_r = self.recurrent_initializer((n_out, n_out))
@@ -353,18 +342,6 @@ class LSTMCell(Cell):
 class LSTM(Recurrent):
     # Fully-connected RNN
     def __init__(self, units: int, activation: str = 'tanh', recurrent_activation: str = 'sigmoid', initializer: str = 'glorotuniform', recurrent_initializer: str = 'orthogonal', unit_forget_bias: bool = True, return_sequences: bool = False, return_state: bool = False, stateful: bool = False, **kwargs):
-        '''
-        :param units: hidden unit nums
-        :param activation:  update unit activation
-        :param recurrent_activation: forget gate,update gate,and output gate activation
-        :param initializer: same to activation
-        :param recurrent_initializer:same to recurrent_activation
-        :param unit_forget_bias:if True,add one to the forget gate bias,and force bias initialize as zeros
-        :param return_sequences: return sequences or last output
-        :param return_state: if True ,return output and last state
-        :param stateful: same as SimpleRNN
-        :param kwargs:
-        '''
         cell = LSTMCell(units=units, activation=activation, recurrent_activation=recurrent_activation, initializer=initializer, recurrent_initializer=recurrent_initializer, unit_forget_bias=unit_forget_bias)
         super(LSTM, self).__init__(cell, return_sequences=return_sequences, return_state=return_state,
                                    stateful=stateful, **kwargs)

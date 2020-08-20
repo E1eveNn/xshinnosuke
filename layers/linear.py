@@ -9,7 +9,6 @@ from ..nn import global_graph as GlobalGraph
 
 class Flatten(Layer):
     def __init__(self, start=1, **kwargs):
-        # output dimensions
         if start < 1:
             raise ValueError('start must be > 0')
         self.start = start
@@ -18,7 +17,6 @@ class Flatten(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = flatten(inbound, self.start, training=GlobalGraph.IS_TRAINING)
-            # output是一个Variable
             return output
         super().__call__(inbound)
         return self
@@ -58,7 +56,6 @@ class Dense(Layer):
             output = dense(inbound, self.variables[0], self.variables[1], GlobalGraph.IS_TRAINING)
             if self.activation is not None:
                 output = self.activation.forward(output)
-            # output是一个Variable
             return output
 
         super().__call__(inbound)

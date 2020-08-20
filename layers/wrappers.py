@@ -4,10 +4,8 @@ from typing import Union, Tuple, List
 
 
 class TimeDistributed(Layer):
-    # 该层主要用于对时间序列数据做操作的，比如对时间序列使用全连接或者卷积
     def __init__(self, layer: Layer, **kwargs):
         super(TimeDistributed, self).__init__(**kwargs)
-        # 所有时间步上的layer是共享的
         self.layer = layer
 
     def initial_params(self, *args):

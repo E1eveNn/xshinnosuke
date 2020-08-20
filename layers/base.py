@@ -42,7 +42,6 @@ class ZeroPadding2D(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = pad_2d(inbound, (self.pad_h, self.pad_w), IS_TRAINING)
-            # output是一个Variable
             return output
         super(ZeroPadding2D, self).__call__(inbound)
         return self
@@ -64,7 +63,6 @@ class ZeroPadding2D(Layer):
 
 class Add(Layer):
     def __call__(self, inbounds: List[Layer], *args, **kwargs):
-        # inbounds只能是Layer数组
         for inbound in inbounds:
             inbound.out_bounds.append(self)
             self.in_bounds.append(inbound)
@@ -130,9 +128,6 @@ class Multiply(Layer):
 
 class Matmul(Layer):
     def __call__(self, inbounds: List[Layer], *args, **kwargs):
-        """
-        只支持两个Layer做矩阵乘
-        """
         assert len(inbounds) == 2
         for inbound in inbounds:
             inbound.out_bounds.append(self)

@@ -67,14 +67,12 @@ class Conv2D(Layer):
         return self.out_channels, n_H, n_W
 
     def __call__(self, inbound, *args, **kwargs):
-        # if isinstance(inbound, Variable):
         if inbound.data is not None:
             if len(self.variables) == 0:
                 self.initial_params(inbound.shape[1:])
             output = conv2d(inbound, self.variables[0], self.variables[1], self.stride, self.pad_size, GlobalGraph.IS_TRAINING)
             if self.activation is not None:
                 output = self.activation.forward(output)
-            # output是一个Variable
             return output
 
         super(Conv2D, self).__call__(inbound)
@@ -125,7 +123,6 @@ class MaxPooling2D(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = max_pool2d(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
-            # output是一个Variable
             return output
         super(MaxPooling2D, self).__call__(inbound)
         return self
@@ -162,7 +159,6 @@ class AvgPooling2D(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = avg_pool2d(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
-            # output是一个Variable
             return output
         super(AvgPooling2D, self).__call__(inbound)
         return self
@@ -198,7 +194,6 @@ class ChannelMaxPooling(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
-            # output是一个Variable
             return output
         super(ChannelMaxPooling, self).__call__(inbound)
         return self
@@ -234,7 +229,6 @@ class ChannelAvgPooling(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = channel_max_pool(inbound, self.kernel_size, self.stride, self.padding, GlobalGraph.IS_TRAINING)
-            # output是一个Variable
             return output
         super(ChannelAvgPooling, self).__call__(inbound)
         return self

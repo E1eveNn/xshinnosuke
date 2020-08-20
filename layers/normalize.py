@@ -15,7 +15,6 @@ class Dropout(Layer):
     def __call__(self, inbound, *args, **kwargs):
         if isinstance(inbound, Variable):
             output = dropout2d(inbound, self.keep_prob)
-            # output是一个Variable
             return output
         super(Dropout, self).__call__(inbound)
         return self

@@ -23,9 +23,9 @@ class Base:
 class _Model(Base):
     def __init__(self):
         super().__init__()
-        self.loss = None  # Variable
-        self.optimizer = None  # Optimizer类型
-        self.graph = None  # Layer数组
+        self.loss = None
+        self.optimizer = None
+        self.graph = None
 
     def compile(self, optimizer, loss):
         raise NotImplemented
@@ -214,9 +214,9 @@ class _Model(Base):
 
 
 class Sequential(_Model):
-    def __init__(self, layers: List[Layer] = None):
+    def __init__(self, *layers: Layer):
         super().__init__()
-        self.graph = [] if layers is None else list(layers)
+        self.graph = [] if len(layers) == 0 else list(layers)
 
     def add(self, layer):
         self.graph.append(layer)
@@ -283,14 +283,11 @@ class Module(Base):
         return out
 
     def __collect_variables(self, x: Variable):
-        # 用一个列表来模拟队列，然后bfs遍历统计所有的trainable_variables
         queue = [x]
-        seen = set()  # 此处为set, python里set用的是hash table, 搜索时比数组要快。
+        seen = set()
         seen.add(x)
         while queue:
-            # 队列非空，队首元素出列
             vertex = queue.pop(0)
-            # 将该元素的邻接元素加入队尾
             for n in vertex.out_bounds:
                 if n not in seen:
                     for v in n.get_variables():

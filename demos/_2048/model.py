@@ -3,7 +3,7 @@ from xshinnosuke.models import Module
 from xshinnosuke.nn.optimizers import Adam
 from xshinnosuke.nn import Variable, CrossEntropy
 from xshinnosuke.utils import DataSet, DataLoader
-import cupy
+from xshinnosuke.nn.global_graph import np
 import os
 
 
@@ -35,8 +35,7 @@ class CNN(Module):
         criterion = CrossEntropy()
         for epoch in range(self.epochs):
             for xs, ys in train_loader:
-                xs = Variable(xs, dtype='int')
-                ys = Variable(ys)
+                xs.int_()
                 optimizer.zero_grad()
                 pred = self(xs)
                 loss = criterion(pred, ys)
@@ -44,35 +43,36 @@ class CNN(Module):
                 optimizer.step()
                 print(f'epoch: {epoch} loss: {loss.data}')
         save_path = os.path.join(os.path.dirname(__file__), 'model')
-        self.save(save_path)
+        # self.save(save_path)
 
     def prediction(self, x, height, width):
+        self.eval()
         self.height = height
         self.width = width
         model_path = os.path.join(os.path.dirname(__file__), 'model')
-        self.load(model_path)
-        x = cupy.array(x)
+        # self.load(model_path)
+        x = np.array(x)
         x = self.convert_x(x)
         x = Variable(x, dtype='int')
-        out = self.predict(x)
-        return cupy.argmax(out.data, 1).tolist()
+        out = self(x)
+        return np.argmax(out.data, 1).tolist()
 
     def preprocess_data(self, x, y):
-        x = cupy.array(x)
-        y = cupy.array(y)
+        x = np.array(x)
+        y = np.array(y)
         x = self.convert_x(x)
         return x[None, :], y[:, None]
 
     def convert_x(self, x):
         for i in range(1, 15):
             target = 2 ** i
-            pos = cupy.where(x == target)
+            pos = np.where(x == target)
             x[pos] = i
         return x
 
     def normalize(self, x):
-        self.mean = cupy.mean(x)
-        self.std = cupy.std(x)
+        self.mean = np.mean(x)
+        self.std = np.std(x)
         return (x - self.mean) / self.std
 
     def forward(self, x, *args):
