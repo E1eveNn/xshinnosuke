@@ -217,9 +217,20 @@ class Sequential(_Model):
     def __init__(self, *layers: Layer):
         super().__init__()
         self.graph = [] if len(layers) == 0 else list(layers)
+        self.variables = set()
 
     def add(self, layer):
         self.graph.append(layer)
+
+    def parameters(self):
+        for layer in self.graph:
+            for variable in layer.parameters():
+                self.variables.add(variable)
+        return list(self.variables)
+
+    def set_parameters(self, variables: List):
+        self.variables = set(variables)
+
 
     def compile(self, optimizer, loss, **kwargs):
         assert self.graph
@@ -297,7 +308,7 @@ class Module(Base):
                     seen.add(n)
 
     def parameters(self):
-        return self.variables
+        return list(self.variables)
 
     def forward(self, x):
         raise NotImplemented

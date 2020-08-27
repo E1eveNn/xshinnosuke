@@ -4,9 +4,10 @@ from typing import List, Tuple, Union
 import gc
 from . import global_graph as GlobalGraph
 from .toolkit import initialize_ops_grad
+import abc
 
 
-class Node:
+class Node(metaclass=abc.ABCMeta):
     def __init__(self, in_bounds: List = None, out_bounds: List = None, data: GlobalGraph.np.ndarray = None,
                  shape: Union[List, Tuple] = None, name: str = None, requires_grad: bool = False):
         self.in_bounds = [] if in_bounds is None else list(in_bounds)
@@ -21,10 +22,10 @@ class Node:
         self.retain = False
         self.__parameters = []
 
-    def get_variables(self):
+    def parameters(self):
         return self.__parameters
 
-    def set_variables(self, variables: List):
+    def set_parameters(self, variables: List):
         self.__parameters = variables
 
     def retain_grad(self):
@@ -97,6 +98,11 @@ class Node:
             GlobalGraph.INPUTS = self
         return mul(self, other)
 
+    def __truediv__(self, other):
+        if GlobalGraph.INPUTS is None:
+            GlobalGraph.INPUTS = self
+        return div(self, other)
+
     def __pow__(self, power: int, modulo=None):
         if GlobalGraph.INPUTS is None:
             GlobalGraph.INPUTS = self
@@ -115,6 +121,8 @@ class Node:
         if self.grad_fn is None:
             raise ValueError('can not solve grad on %s' % self)
         if gradients is not None:
+            if isinstance(gradients, Variable):
+                gradients = gradients.data
             assert gradients.size == self.data.size and gradients.shape == self.data.shape
             self.grad = gradients
         else:
@@ -156,6 +164,11 @@ class Node:
 
     def int_(self):
         self.data = self.data.astype(GlobalGraph.np.int32)
+
+    def l2norm(self):
+        output = Variable(data=GlobalGraph.np.sqrt(GlobalGraph.np.sum(GlobalGraph.np.square(self.data))), requires_grad=self.requires_grad)
+        return output
+
 
     def matmul(self, other):
         if GlobalGraph.INPUTS is None:
@@ -292,13 +305,14 @@ class Variable(Node):
                  out_bounds: Union[List, Tuple] = None,
                  name: str = None, requires_grad: bool = True, dtype: str = 'float32'):
         if isinstance(data, Variable):
-            Node.__init__(self,
-                          in_bounds=data.in_bounds,
-                          out_bounds=data.out_bounds,
-                          data=data.data,
-                          shape=data.data.shape,
-                          name=data.name,
-                          requires_grad=data.requires_grad)
+            # Node.__init__(self,
+            #               in_bounds=data.in_bounds,
+            #               out_bounds=data.out_bounds,
+            #               data=data.data,
+            #               shape=data.data.shape,
+            #               name=data.name,
+            #               requires_grad=data.requires_grad)
+            pass
         else:
             dtype_dict = {'int': GlobalGraph.np.int, 'float': GlobalGraph.np.float, 'int8': GlobalGraph.np.int8, 'int16': GlobalGraph.np.int16, 'int32': GlobalGraph.np.int32,
                           'int64': GlobalGraph.np.int64, 'float32': GlobalGraph.np.float32, 'float64': GlobalGraph.np.float64}
@@ -312,10 +326,10 @@ class Variable(Node):
                           requires_grad=requires_grad)
 
     def __getitem__(self, item):
-        return slices(self, item)
+        return slices(self, item, GlobalGraph.IS_TRAINING)
 
     def __setitem__(self, key, value):
-        copySlices(self, key, value)
+        copySlices(self, key, value, GlobalGraph.IS_TRAINING)
 
 
 class Constant(Node):
@@ -377,6 +391,12 @@ class Layer:
 
     def initial_params(self, *args):
         pass
+
+    def parameters(self):
+        return self.variables
+
+    def set_parameters(self, variables: List):
+        self.variables = variables
 
     def compute_output_shape(self, input_shape: Union[List, Tuple] = None) -> Union[List, Tuple]:
         return input_shape
@@ -440,7 +460,6 @@ def neg(x: Variable) -> Variable:
     return outputs
 
 
-
 def mul(x: Variable, y: Variable) -> Variable:
     if isinstance(y, int) or isinstance(y, float):
         y = Variable(y, requires_grad=False)
@@ -470,7 +489,25 @@ def mul(x: Variable, y: Variable) -> Variable:
     return outputs
 
 
-def slices(x, item):
+def div(x: Variable, y: Variable) -> Variable:
+    if isinstance(y, Variable):
+        data = x.data / y.data
+        requires_grad = x.requires_grad or y.requires_grad
+    elif isinstance(y, (int, float)):
+        data = x.data / y
+        requires_grad = x.requires_grad
+    else:
+        raise ValueError
+    outputs = Variable(in_bounds=[x, y], data=data, requires_grad=requires_grad)
+    if outputs.requires_grad:
+        initialize_ops_grad(x, y)
+        outputs.grad_fn = DivBackward
+        x.out_bounds.append(outputs)
+        y.out_bounds.append(outputs)
+    return outputs
+
+
+def slices(x, item, training):
     if GlobalGraph.INPUTS is None:
         GlobalGraph.INPUTS = x
     ret = Variable(data=x.data[item], in_bounds=[x, ], requires_grad=x.requires_grad)
@@ -482,7 +519,7 @@ def slices(x, item):
     return ret
 
 
-def copySlices(x, pos, value: Variable):
+def copySlices(x, pos, value: Variable, training):
     x.data[pos] = value.data
     value.out_bounds.append(x)
     x.in_bounds.append(value)

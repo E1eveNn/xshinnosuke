@@ -57,7 +57,7 @@ class ReLU(Layer):
 
     def backward(self, output: Variable = None):
         if output is not None:
-            self.data = output
+            self.data = Variable(output)
         ReluBackward(self.data)
 
 
@@ -77,7 +77,7 @@ class Sigmoid(Layer):
 
     def backward(self, output: Variable = None):
         if output is not None:
-            self.data = output
+            self.data = Variable(output)
         SigmoidBackward(self.data)
 
 
@@ -97,7 +97,7 @@ class Tanh(Layer):
 
     def backward(self, output: Variable = None):
         if output is not None:
-            self.data = output
+            self.data = Variable(output)
         TanhBackward(self.data)
 
 

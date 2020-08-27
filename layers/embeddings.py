@@ -40,4 +40,4 @@ class Embedding(Layer):
         return self.data
 
     def backward(self, gradients=None):
-        EmbeddingBackward(self)
+        EmbeddingBackward(self.data)

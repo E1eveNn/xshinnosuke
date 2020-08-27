@@ -1,6 +1,8 @@
 from ..nn.global_graph import np
 from typing import List
-from ..nn.core import Variable
+from ..nn.core import Variable, Layer
+from ..nn.objectives import Objective
+from ..nn.toolkit import no_grad
 
 
 class ProgressBar:
@@ -195,4 +197,44 @@ def format_time(second_time: float) -> str:
         return '%dm%ds' % (m, second_time)
     else:
         return '%ds' % second_time
+
+
+def gradient_check(inputs: Variable, target: Variable, layer: Layer, criterion: Objective, epsilon=1e-4):
+    variables = layer.parameters()
+    variables_mathematical_gradient_list = []
+    with no_grad():
+        for i in range(len(variables)):
+            variable_shape = variables[i].shape
+            variable_size = variables[i].numel()
+            flat_variables = variables[i].data.reshape(-1, 1)
+            mathematical_gradient = np.zeros((variable_size, ))
+            new_flat_add_variable = flat_variables.copy()
+            new_flat_minus_variable = flat_variables.copy()
+            for j in range(variable_size):
+                new_flat_add_variable[j] += epsilon
+                new_variable = new_flat_add_variable.reshape(variable_shape)
+                variables[i].data = new_variable
+                layer.set_parameters(variables)
+                out = layer(inputs)
+                loss1 = criterion(out, target)
+                # recover
+                new_flat_add_variable[j] -= epsilon
+
+                new_flat_minus_variable[j] -= epsilon
+                new_variable = new_flat_minus_variable.reshape(variable_shape)
+                variables[i].data = new_variable
+                layer.set_parameters(variables)
+                out = layer(inputs)
+                loss2 = criterion(out, target)
+                # recover
+                new_flat_minus_variable[j] += epsilon
+
+                mathematical_gradient[j] = (loss1.data - loss2.data) / (2 * epsilon)
+            mathematical_gradient = mathematical_gradient.reshape(variable_shape)
+            variables_mathematical_gradient_list.append(mathematical_gradient)
+    return variables_mathematical_gradient_list
+
+
+
+
 

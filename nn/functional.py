@@ -2,7 +2,7 @@ from .core import Variable
 from .grad_fn import *
 from .toolkit import im2col, initialize_ops_grad
 from xshinnosuke.nn.initializers import Zeros, Ones
-from typing import Tuple
+from typing import Tuple, List
 
 
 def relu(inputs: Variable, inplace: bool = False, training: bool = True) -> Variable:
@@ -63,7 +63,7 @@ def dense(inputs: Variable, weight: Variable, bias: Variable = None, training: b
     if bias is not None:
         outputs += bias.data
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
-    outputs.set_variables([weight, bias])
+    outputs.set_parameters([weight, bias])
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         outputs.grad_fn = DenseBackward
@@ -90,11 +90,75 @@ def embedding(inputs: Variable, weight: Variable, training: bool = True):
     if GlobalGraph.INPUTS is None:
         GlobalGraph.INPUTS = inputs
     outputs = Variable(weight.data[inputs.data.astype(GlobalGraph.np.int)], in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad)
-    outputs.set_variables([weight, ])
+    outputs.set_parameters([weight, ])
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         outputs.grad_fn = EmbeddingBackward
         initialize_ops_grad(inputs, weight)
+    return outputs
+
+
+def lstm(inputs: Variable, weight: Variable, bias: Variable, units: int,
+         recurrent_activations: List, activations: List,
+         prev_a: Variable = None, c: Variable = None, tao_f: Variable = None,
+         tao_u: Variable = None, tao_o: Variable = None, c_tilde: Variable = None, training: bool = True, return_sequences: bool = False):
+    if GlobalGraph.INPUTS is None:
+        GlobalGraph.INPUTS = inputs
+    batch_nums, time_steps, n_vec = inputs.data.shape
+    if prev_a is None:
+        prev_a = Variable(GlobalGraph.np.zeros((batch_nums, time_steps, n_vec)))
+    if c is None:
+        c = Variable(GlobalGraph.np.zeros((batch_nums, time_steps, n_vec)))
+    if tao_f is None:
+        tao_f = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, n_vec)))
+    if tao_u is None:
+        tao_u = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, n_vec)))
+    if tao_o is None:
+        tao_o = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, n_vec)))
+    if c_tilde is None:
+        c_tilde = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, n_vec)))
+    
+    z = GlobalGraph.np.zeros((batch_nums, time_steps, n_vec + units))
+    for t in range(1, time_steps + 1):
+        zt = GlobalGraph.np.concatenate((prev_a.data[:, t - 1, :], inputs.data[:, t - 1, :]), axis=1)
+        ot = zt.dot(weight.data) + bias.data
+        f = recurrent_activations[3 * (t - 1)].forward(Variable(ot[:, :units]))
+        u = recurrent_activations[3 * (t - 1) + 1].forward(Variable(ot[:, units: units * 2]))
+        _c_tilde = activations[t - 1].forward(Variable(ot[:, units * 2: units * 3]))
+        o = recurrent_activations[3 * (t - 1) + 2].forward(Variable(ot[:, units * 3:]))
+
+        c_tilde.data[:, t - 1, :] = _c_tilde.data
+        _c = f.data * c.data[:, t - 1, :] + u.data * _c_tilde.data
+        
+        prev_a.data[:, t, :] = o.data * GlobalGraph.np.tanh(_c)
+
+        tao_f.data[:, t - 1, :] = f.data
+        tao_u.data[:, t - 1, :] = u.data
+        tao_o.data[:, t - 1, :] = o.data
+        c.data[:, t, :] = _c
+        z[:, t - 1, :] = zt
+    if return_sequences:
+        outputs = Variable(data=prev_a.data[:, 1:, :], in_bounds=[inputs, ],
+                       requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
+    else:
+        outputs = Variable(data=prev_a.data[:, -1, :], in_bounds=[inputs, ],
+                           requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
+    outputs.set_parameters([weight, bias])
+    inputs.out_bounds.append(outputs)
+    if training and outputs.requires_grad:
+        outputs.cache['units'] = units
+        outputs.cache['time_steps'] = time_steps
+        outputs.cache['recurrent_activations'] = recurrent_activations
+        outputs.cache['activations'] = activations
+        outputs.cache['prev_a'] = prev_a
+        outputs.cache['c'] = c
+        outputs.cache['tao_f'] = tao_f
+        outputs.cache['tao_u'] = tao_u
+        outputs.cache['tao_o'] = tao_o
+        outputs.cache['c_tilde'] = c_tilde
+        outputs.cache['return_sequences'] = return_sequences
+        outputs.grad_fn = LstmBackward
+        initialize_ops_grad(inputs, weight, bias)
     return outputs
 
 
@@ -119,7 +183,7 @@ def conv2d(inputs: Variable, weight: Variable, bias: Variable = None, stride: Tu
         outputs += bias.data
     outputs = outputs.reshape(batch_nums, n_h, n_w, -1).transpose(0, 3, 1, 2)
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or weight.requires_grad or (bias and bias.requires_grad))
-    outputs.set_variables([weight, bias])
+    outputs.set_parameters([weight, bias])
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         # store these for bp
@@ -369,7 +433,7 @@ def batchnorm2d(inputs: Variable, gamma: Variable, beta: Variable, axis: int, ep
         outputs = GlobalGraph.np.swapaxes(outputs, axis, -1)
 
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
-    outputs.set_variables([gamma, beta])
+    outputs.set_parameters([gamma, beta])
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         outputs.cache['xmu'] = xmu
@@ -397,7 +461,7 @@ def layernorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: boo
     outputs = gamma.data * normalized_x + beta.data
 
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
-    outputs.set_variables([gamma, beta])
+    outputs.set_parameters([gamma, beta])
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         outputs.cache['shape_field'] = shape_field
@@ -426,7 +490,7 @@ def groupnorm2d(inputs: Variable, gamma: Variable, beta: Variable, training: boo
     outputs = gamma.data * x_norm + beta.data
 
     outputs = Variable(data=outputs, in_bounds=[inputs, ], requires_grad=inputs.requires_grad or gamma.requires_grad or beta.requires_grad)
-    outputs.set_variables([gamma, beta])
+    outputs.set_parameters([gamma, beta])
     inputs.out_bounds.append(outputs)
     if training and outputs.requires_grad:
         outputs.cache['groups'] = groups

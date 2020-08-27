@@ -1,9 +1,9 @@
 from ..nn.core import Layer, Variable
 from .activators import get_activator
 from ..nn.initializers import get_initializer, ones
-from ..nn.functional import concatenate
+from ..nn.functional import concatenate, lstm, LstmBackward
 from ..nn.toolkit import initialize_ops_grad
-from ..nn.global_graph import np, IS_TRAINING
+from ..nn import global_graph as GlobalGraph
 from typing import Union, List, Tuple
 
 
@@ -20,10 +20,10 @@ class Cell:
     def initial_params(self, input_shape=None):
         pass
 
-    def forward(self, x: Variable, stateful: bool):
-        pass
+    def forward(self, x: Variable, stateful: bool, return_sequences: bool):
+        raise NotImplemented
 
-    def backward(self, outputs: Variable, inputs: Variable, return_sequences: bool):
+    def backward(self, outputs: Variable):
         pass
 
     def reset_state(self, shape):
@@ -42,7 +42,11 @@ class Recurrent(Layer):
         self.input_length = input_length
 
     def __call__(self, inbound, *args, **kwargs):
-        assert len(inbound.shape) == 2, 'Only support batch input'
+        # assert len(inbound.shape) == 2, 'Only support batch input'
+        if isinstance(inbound, Variable):
+            if len(self.variables) == 0:
+                self.initial_params(inbound.shape[1:])
+            return self.forward(inbound)
         super(Recurrent, self).__call__(inbound)
         return self
 
@@ -52,26 +56,23 @@ class Recurrent(Layer):
             return tuple([time_steps, self.cell.units])
         return tuple([self.cell.units])
 
-    def initial_params(self, *args):
+    def initial_params(self, input_shape=None):
+        if input_shape is not None:
+            self.input_shape = input_shape
         time_steps, n_vec = self.input_shape
         self.variables = self.cell.initial_params((n_vec, self.cell.units))
 
     def forward(self, x: Variable = None, *args):
         if x is not None:
             self.input_data = x
-        output = self.cell.forward(self.input_data, self.stateful)
-        if self.return_sequences:
-            self.data = output
-        else:
-            self.data = output[:, -1, :]
-
+        self.data = self.cell.forward(self.input_data, self.stateful, self.return_sequences)
         self.feed_variable_to_next_layers(self.data)
         if self.return_sequences:
             return self.data, self.cell.prev_a
         return self.data
 
     def backward(self, gradients=None):
-        gradients = self.cell.backward(self.data, self.input_data, self.return_sequences)
+        gradients = self.cell.backward(self.data)
         super().backward(gradients)
 
 
@@ -99,7 +100,7 @@ class SimpleRNNCell(Cell):
     def forward(self, x: Variable, stateful: bool):
         batch_nums, time_steps, n_vec = x.data.shape
         Wxa, Waa, ba = self.variables
-        if IS_TRAINING:
+        if GlobalGraph.IS_TRAINING:
             self.time_steps = time_steps
             if self.__first_initialize:
                 # first initialize prev_a
@@ -123,39 +124,39 @@ class SimpleRNNCell(Cell):
 
     def backward(self, outputs: Variable, inputs: Variable, return_sequences: bool):
         Wxa, Waa, ba = self.variables
-        grad = np.zeros_like(inputs.data)
+        grad = GlobalGraph.np.zeros_like(inputs.data)
         if return_sequences:
-            da_next = np.zeros_like(self.prev_a[:, 0, :])
+            da_next = GlobalGraph.np.zeros_like(self.prev_a[:, 0, :])
             for t in reversed(range(self.time_steps)):
                 dz = self.activations[t].backward(outputs.grad[:, t, :] + da_next)
 
                 if Waa.requires_grad:
-                    Waa.grad += np.dot(self.prev_a[:, t - 1, :].T, dz)
+                    Waa.grad += GlobalGraph.np.dot(self.prev_a[:, t - 1, :].T, dz)
                 if Wxa.requires_grad:
-                    Wxa.grad += np.dot(inputs.data[:, t, :].T, dz)
+                    Wxa.grad += GlobalGraph.np.dot(inputs.data[:, t, :].T, dz)
                 if ba.requires_grad:
-                    ba.grad += np.sum(dz, axis=0)
+                    ba.grad += GlobalGraph.np.sum(dz, axis=0)
 
-                da_next = np.dot(dz, Waa.data.T)
-                grad[:, t, :] = np.dot(dz, Wxa.data.T)
+                da_next = GlobalGraph.np.dot(dz, Waa.data.T)
+                grad[:, t, :] = GlobalGraph.np.dot(dz, Wxa.data.T)
         else:
             da = outputs.grad
             for t in reversed(range(self.time_steps)):
                 da = self.activations[t].backward(da)
 
                 if Waa.requires_grad:
-                    Waa.grad += np.dot(self.prev_a[:, t-1, :].T, da)
+                    Waa.grad += GlobalGraph.np.dot(self.prev_a[:, t-1, :].T, da)
                 if Wxa.requires_grad:
-                    Wxa.grad += np.dot(inputs.data[:, t, :].T, da)
+                    Wxa.grad += GlobalGraph.np.dot(inputs.data[:, t, :].T, da)
                 if ba.requires_grad:
-                    ba.grad += np.sum(da, axis=0)
+                    ba.grad += GlobalGraph.np.sum(da, axis=0)
 
-                grad[:, t, :] = np.dot(da, Wxa.data.T)
-                da = np.dot(da, Waa.data.T)
+                grad[:, t, :] = GlobalGraph.np.dot(da, Wxa.data.T)
+                da = GlobalGraph.np.dot(da, Waa.data.T)
         return grad
 
     def reset_state(self, shape):
-        self.prev_a = np.zeros(shape)
+        self.prev_a = GlobalGraph.np.zeros(shape)
 
 
 class SimpleRNN(Recurrent):
@@ -212,12 +213,12 @@ class LSTMCell(Cell):
         Wo = concatenate(Wo_r, Wo_l, axis=0, name='variable')
         W = concatenate(Wf, Wu, Wc, Wo, axis=1, name='xs_variable')
         if self.unit_forget_bias:
-            bf = Variable(np.ones((1, n_out)), name='variable')
+            bf = Variable(GlobalGraph.np.ones((1, n_out)), name='variable')
         else:
-            bf = Variable(np.zeros((1, n_out)), name='variable')
-        bu = Variable(np.zeros((1, n_out)), name='variable')
-        bc = Variable(np.zeros((1, n_out)), name='variable')
-        bo = Variable(np.zeros((1, n_out)), name='variable')
+            bf = Variable(GlobalGraph.np.zeros((1, n_out)), name='variable')
+        bu = Variable(GlobalGraph.np.zeros((1, n_out)), name='variable')
+        bc = Variable(GlobalGraph.np.zeros((1, n_out)), name='variable')
+        bo = Variable(GlobalGraph.np.zeros((1, n_out)), name='variable')
         b = concatenate(bf, bu, bc, bo, axis=1, name='xs_variable')
 
         del Wf_r, Wf_l, Wu_r, Wu_l, Wc_r, Wc_l, Wo_r, Wo_l, Wf, Wu, Wc, Wo, bf, bu, bc, bo
@@ -225,11 +226,10 @@ class LSTMCell(Cell):
         self.variables.append(b)
         return self.variables
 
-    def forward(self, x: Variable, stateful: bool):
+    def forward(self, x: Variable, stateful: bool, return_sequences: bool):
+        weight, bias = self.variables
         batch_nums, time_steps, n_vec = x.data.shape
-        W, b = self.variables
-        if IS_TRAINING:
-            self.time_steps = time_steps
+        if GlobalGraph.IS_TRAINING:
             if self.__first_initialize:
                 # first intialize prev_a
                 self.reset_state(shape=(batch_nums, time_steps + 1, self.units))
@@ -237,106 +237,28 @@ class LSTMCell(Cell):
                 self.recurrent_activations = [self.recurrent_activation_cls() for _ in range(3 * time_steps)]
                 self.__first_initialize = False
             if stateful:
-                self.prev_a[:, 0, :] = self.prev_a[:, -1, :]
-                self.c[:, 0, :] = self.c[:, -1, :]
+                self.prev_a.data[:, 0, :] = self.prev_a.data[:, -1, :]
+                self.c.data[:, 0, :] = self.c.data[:, -1, :]
             else:
                 self.reset_state(shape=(batch_nums, time_steps + 1, self.units))
         else:
             self.reset_state(shape=(batch_nums, time_steps + 1, self.units))
 
-        z = np.zeros((batch_nums, time_steps, n_vec + self.units))
-        for t in range(1, time_steps + 1):
-            zt = np.concatenate((self.prev_a[:, t-1, :], x.data[:, t-1, :]), axis=1)
-            ot = zt.dot(W.data) + b.data
-            f = self.recurrent_activations[3 * (t - 1)].forward(ot[:, :self.units])
-            u = self.recurrent_activations[3 * (t - 1) + 1].forward(ot[:, self.units: self.units * 2])
-            c_tilde = self.activations[t - 1].forward(ot[:, self.units * 2: self.units * 3])
-            o = self.recurrent_activations[3 * (t - 1) + 2].forward(ot[:, self.units * 3:])
-            self.c_tilde[:, t-1, :] = c_tilde
-            c = f * self.c[:, t-1, :] + u * c_tilde
-            self.prev_a[:, t, :] = o * np.tanh(c)
+        return lstm(x, weight, bias, self.units, self.recurrent_activations, self.activations, self.prev_a, self.c,
+                    self.tao_f, self.tao_u, self.tao_o, self.c_tilde, GlobalGraph.IS_TRAINING, return_sequences)
 
-            self.tao_f[:, t-1, :] = f
-            self.tao_u[:, t-1, :] = u
-            self.tao_o[:, t - 1, :] = o
-            self.c[:, t, :] = c
-            z[:, t-1, :] = zt
-        return self.prev_a[:, 1:, :]
-
-    def backward(self, outputs: Variable, inputs: Variable, return_sequences: bool):
-        W, b = self.variables
-        grad = np.zeros_like(inputs.data)
-        grad = grad[:, :, self.units:]
-        if return_sequences:
-            da_next = np.zeros_like(self.prev_a[:, 0, :])
-            dc_next = np.zeros_like(self.c[:, 0, :])
-            for t in reversed(range(self.time_steps)):
-                da = outputs.grad[:, t, :] + da_next
-                dtao_o = da * np.tanh(self.c[:, t + 1, :])
-                do = self.recurrent_activations[3 * (t + 1) - 1].backward(dtao_o)
-                dc = dc_next
-                dc += da * self.tao_o[:, t, :] * (1 - np.square(np.tanh(self.c[:, t+1, :])))
-                dc_tilde = dc * self.tao_u[:, t, :]
-                dc_tilde_before_act = self.activations[t].backward(dc_tilde)
-                dtao_u = dc * self.c_tilde[:, t, :]
-                du = self.recurrent_activations[3 * (t + 1) - 2].backward(dtao_u)
-                dtao_f = dc * self.c[:, t, :]
-                df = self.recurrent_activations[3 * (t + 1) - 3].backward(dtao_f)
-                dgrad = np.concatenate((do, dc_tilde_before_act, du, df), axis=1)
-                if W.requires_grad:
-                    W.grad += np.dot(inputs.data[:, t, :].T, dgrad)
-                if b.requires_grad:
-                    b.grad += np.sum(dgrad, axis=0, keepdims=True)
-
-                dz = dgrad.dot(W.data.T)
-
-                da_next = dz[:, :self.units]
-                dc_next = dc * self.tao_f[:, t, :]
-
-                grad[:, t, :] = dz[:, self.units:]
-        else:
-            da_next = np.zeros_like(self.prev_a[:, 0, :])
-            dc_next = np.zeros_like(self.c[:, 0, :])
-            da = outputs.grad + da_next
-            for t in reversed(range(self.time_steps)):
-                dtao_o = da * np.tanh(self.c[:, t+1, :])
-                do = self.recurrent_activations[3 * (t + 1) - 1].backward(dtao_o)
-
-                dc = dc_next
-                dc += da * self.tao_o[:, t, :] * (1 - np.square(np.tanh(self.c[:, t+1, :])))
-
-                dc_tilde = dc * self.tao_u[:, t, :]
-                dc_tilde_before_act = self.activations[t].backward(dc_tilde)
-
-                dtao_u = dc * self.c_tilde[:, t, :]
-                du = self.recurrent_activations[3 * (t + 1) - 2].backward(dtao_u)
-
-                dtao_f = dc * self.c[:, t, :]
-                df = self.recurrent_activations[3 * (t + 1) - 3].backward(dtao_f)
-
-                dgrad = np.concatenate((do, dc_tilde_before_act, du, df), axis=1)
-                if W.requires_grad:
-                    W.grad += np.dot(inputs.data[:, t, :].T, dgrad)
-                if b.requires_grad:
-                    b.grad += np.sum(dgrad, axis=0, keepdims=True)
-
-                dz = dgrad.dot(W.data.T)
-
-                da = dz[:, :self.units]
-                dc_next = dc * self.tao_f[:, t, :]
-                grad[:, t, :] = dz[:, self.units:]
-
-        return grad
+    def backward(self, outputs: Variable):
+        LstmBackward(outputs)
 
     def reset_state(self, shape):
-        # timesteps here equals to real timesteps+1
+        # timesteps here equals to real timesteps + 1
         batch_nums, time_steps, units = shape
-        self.prev_a = np.zeros(shape)
-        self.c = np.zeros(shape)
-        self.tao_f = np.zeros((batch_nums, time_steps - 1, units))
-        self.tao_u = np.zeros((batch_nums, time_steps - 1, units))
-        self.tao_o = np.zeros((batch_nums, time_steps - 1, units))
-        self.c_tilde = np.zeros((batch_nums, time_steps - 1, units))
+        self.prev_a = Variable(GlobalGraph.np.zeros(shape))
+        self.c = Variable(GlobalGraph.np.zeros(shape))
+        self.tao_f = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, units)))
+        self.tao_u = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, units)))
+        self.tao_o = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, units)))
+        self.c_tilde = Variable(GlobalGraph.np.zeros((batch_nums, time_steps - 1, units)))
 
 
 class LSTM(Recurrent):

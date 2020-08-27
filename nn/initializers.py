@@ -159,7 +159,7 @@ def ones(*shape, **kwargs):
 
 def ones_like(a, **kwargs):
     requires_grad = kwargs.pop('requires_grad', a.requires_grad)
-    return np.ones_like(a, requires_grad=requires_grad, **kwargs)
+    return Variable(np.ones_like(a.data), requires_grad=requires_grad, **kwargs)
 
 
 def zeros(*shape, **kwargs):
@@ -169,7 +169,7 @@ def zeros(*shape, **kwargs):
 
 def zeros_like(a, **kwargs):
     requires_grad = kwargs.pop('requires_grad', a.requires_grad)
-    return np.zeros_like(a, requires_grad=requires_grad, **kwargs)
+    return Variable(np.zeros_like(a.data), requires_grad=requires_grad, **kwargs)
 
 
 def rand(*shape, **kwargs):
@@ -192,7 +192,7 @@ def tensor(data, **kwargs):
     return Variable(data=data, requires_grad=requires_grad, **kwargs)
 
 
-def seed(seeds=None):
+def manual_seed_all(seeds=None):
     np.random.seed(seeds)
 
 

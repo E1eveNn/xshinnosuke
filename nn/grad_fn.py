@@ -72,6 +72,10 @@ def MultiplyBackward(outputs):
                 in_bound.grad += outputs.grad * product_except_self_list[i]
 
 
+def DivBackward(outputs):
+    pass
+
+
 def SumBackward(outputs):
     inputs, = outputs.in_bounds
     if inputs.requires_grad:
@@ -173,7 +177,7 @@ def FlattenBackward(outputs):
 
 def DenseBackward(outputs):
     inputs, = outputs.in_bounds
-    weight, bias = outputs.get_variables()
+    weight, bias = outputs.parameters()
     # 正向传播时是 inputs -> dense -> outputs
     if weight.requires_grad:
         weight.grad += inputs.data.T.dot(outputs.grad)
@@ -185,14 +189,101 @@ def DenseBackward(outputs):
 
 def EmbeddingBackward(outputs):
     inputs,  = outputs.in_bounds
-    weight, = outputs.get_variables()
+    weight, = outputs.parameters()
     if weight.requires_grad:
         weight.grad[inputs.data.astype(GlobalGraph.np.int)] += outputs.grad
 
 
+def LstmBackward(outputs):
+    inputs, = outputs.in_bounds
+    weight, bias = outputs.parameters()
+    units = outputs.cache['units']
+    time_steps = outputs.cache['time_steps']
+    recurrent_activations = outputs.cache['recurrent_activations']
+    activations = outputs.cache['activations']
+    prev_a = outputs.cache['prev_a']
+    c = outputs.cache['c']
+    tao_f = outputs.cache['tao_f']
+    tao_u = outputs.cache['tao_u']
+    tao_o = outputs.cache['tao_o']
+    c_tilde = outputs.cache['c_tilde']
+    return_sequences = outputs.cache['return_sequences']
+
+    da_next = GlobalGraph.np.zeros_like(prev_a.data[:, 0, :])
+    dc_next = GlobalGraph.np.zeros_like(c.data[:, 0, :])
+    if inputs.requires_grad:
+        grad = GlobalGraph.np.zeros_like(inputs.data)
+    if return_sequences:
+        for t in reversed(range(time_steps)):
+            da = outputs.grad[:, t, :] + da_next
+            dtao_o = da * GlobalGraph.np.tanh(c.data[:, t + 1, :])
+            do = recurrent_activations[3 * (t + 1) - 1].backward(dtao_o)
+            dc = dc_next
+            dc += da * tao_o.data[:, t, :] * (1 - GlobalGraph.np.square(GlobalGraph.np.tanh(c.data[:, t + 1, :])))
+            dc_tilde = dc * tao_u.data[:, t, :]
+            dc_tilde_before_act = activations[t].backward(dc_tilde)
+            dtao_u = dc * c_tilde.data[:, t, :]
+            du = recurrent_activations[3 * (t + 1) - 2].backward(dtao_u)
+            dtao_f = dc * c.data[:, t, :]
+            df = recurrent_activations[3 * (t + 1) - 3].backward(dtao_f)
+            dgrad = GlobalGraph.np.concatenate((do, dc_tilde_before_act, du, df), axis=1)
+            if weight.requires_grad:
+                weight.grad += GlobalGraph.np.dot(inputs.data[:, t, :].T, dgrad)
+            if bias.requires_grad:
+                bias.grad += GlobalGraph.np.sum(dgrad, axis=0, keepdims=True)
+
+            dz = dgrad.dot(weight.data.T)
+
+            da_next = dz[:, :units]
+            dc_next = dc * tao_f.data[:, t, :]
+            if inputs.requires_grad:
+                grad[:, t, :] = dz[:, units:]
+    else:
+        da = outputs.grad + da_next
+        for t in reversed(range(time_steps)):
+            dtao_o = da * GlobalGraph.np.tanh(c.data[:, t + 1, :])
+            recurrent_activations[3 * (t + 1) - 1].data.grad = dtao_o
+            recurrent_activations[3 * (t + 1) - 1].backward()
+            do = recurrent_activations[3 * (t + 1) - 1].input_data.grad
+
+            dc = dc_next
+            dc += da * tao_o.data[:, t, :] * (1 - GlobalGraph.np.square(GlobalGraph.np.tanh(c.data[:, t + 1, :])))
+
+            dc_tilde = dc * tao_u.data[:, t, :]
+            activations[t].data.grad = dc_tilde
+            activations[t].backward()
+            dc_tilde_before_act = activations[t].input_data.grad
+
+            dtao_u = dc * c_tilde.data[:, t, :]
+            recurrent_activations[3 * (t + 1) - 2].data.grad = dtao_u
+            recurrent_activations[3 * (t + 1) - 2].backward()
+            du = recurrent_activations[3 * (t + 1) - 2].input_data.grad
+
+            dtao_f = dc * c.data[:, t, :]
+            recurrent_activations[3 * (t + 1) - 3].data.grad = dtao_f
+            recurrent_activations[3 * (t + 1) - 3].backward()
+            df = recurrent_activations[3 * (t + 1) - 3].input_data.grad
+
+            dgrad = GlobalGraph.np.concatenate((do, dc_tilde_before_act, du, df), axis=1)
+            if weight.requires_grad:
+                zt = GlobalGraph.np.concatenate((prev_a.data[:, t - 1, :], inputs.data[:, t - 1, :]), axis=1)
+                weight.grad += GlobalGraph.np.dot(zt.T, dgrad)
+            if bias.requires_grad:
+                bias.grad += GlobalGraph.np.sum(dgrad, axis=0, keepdims=True)
+
+            dz = dgrad.dot(weight.data.T)
+
+            da = dz[:, :units]
+            dc_next = dc * tao_f.data[:, t, :]
+            if inputs.requires_grad:
+                grad[:, t, :] = dz[:, units:]
+    if inputs.requires_grad:
+        inputs.grad += grad
+
+
 def Conv2DBackward(outputs):
     inputs, = outputs.in_bounds
-    weight, bias = outputs.get_variables()
+    weight, bias = outputs.parameters()
     n, in_channels, h, w = inputs.data.shape
     out_channels, _, kernel_h, kernel_w = weight.data.shape
     _, _, out_h, out_w = outputs.grad.shape
@@ -313,7 +404,7 @@ def Dropout2DBackward(outputs):
 
 def Batchnorm2DBackward(outputs):
     inputs,  = outputs.in_bounds
-    gamma, beta = outputs.get_variables()
+    gamma, beta = outputs.parameters()
     if inputs.requires_grad:
         grad = outputs.grad
         ndim = grad.ndim
@@ -352,7 +443,7 @@ def Batchnorm2DBackward(outputs):
 
 def Layernorm2DBackward(outputs):
     inputs, = outputs.in_bounds
-    gamma, beta = outputs.get_variables()
+    gamma, beta = outputs.parameters()
     grad = outputs.grad
     if gamma.requires_grad:
         normalized_x = inputs.cache['normalized_x']
@@ -382,7 +473,7 @@ def Layernorm2DBackward(outputs):
 
 def Groupnorm2DBackward(outputs):
     inputs, = outputs.in_bounds
-    gamma, beta = outputs.get_variables()
+    gamma, beta = outputs.parameters()
     grad = outputs.grad
     if gamma.requires_grad:
         x_norm = outputs.cache['x_norm']

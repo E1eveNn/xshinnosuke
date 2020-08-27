@@ -1,10 +1,21 @@
-from .global_graph import np
+from . import global_graph as GlobalGraph
 from typing import Tuple
 
 
-def im2col(inputs: np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: int, stride: Tuple):
+class no_grad:
+    def __init__(self):
+        self.IS_TRAINING_FLAG = GlobalGraph.IS_TRAINING
+
+    def __enter__(self):
+        GlobalGraph.IS_TRAINING = False
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        GlobalGraph.IS_TRAINING = self.IS_TRAINING_FLAG
+
+
+def im2col(inputs: GlobalGraph.np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: int, stride: Tuple):
     batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs.shape
-    col = np.zeros((batch_nums, n_C_prev, kernel_h, kernel_w, out_h, out_w))
+    col = GlobalGraph.np.zeros((batch_nums, n_C_prev, kernel_h, kernel_w, out_h, out_w))
 
     for y in range(kernel_h):
         y_max = y + stride[0] * out_h
@@ -16,14 +27,14 @@ def im2col(inputs: np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: 
     return col
 
 
-def col2im(inputs_shape: tuple, pad_size: int, kernel_h: int, kernel_w: int, stride: Tuple, dcol: np.ndarray):
+def col2im(inputs_shape: tuple, pad_size: int, kernel_h: int, kernel_w: int, stride: Tuple, dcol: GlobalGraph.np.ndarray):
     batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs_shape  # 填充前的shape
     n_H = (n_H_prev + 2 * pad_size - kernel_h) // stride[0] + 1
     n_W = (n_W_prev + 2 * pad_size - kernel_w) // stride[1] + 1
 
     dcol = dcol.reshape((batch_nums, n_H, n_W, n_C_prev, kernel_h, kernel_w)).transpose(0, 3, 4, 5, 1, 2)
 
-    output = np.zeros(
+    output = GlobalGraph.np.zeros(
         (batch_nums, n_C_prev, n_H_prev + 2 * pad_size + stride[0] - 1, n_W_prev + 2 * pad_size + stride[1] - 1))
 
     for y in range(kernel_h):
