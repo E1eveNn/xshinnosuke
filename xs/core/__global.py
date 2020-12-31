@@ -1,5 +1,0 @@
-INPUTS = None
-OUTPUTS = None
-GRAPH = None
-TRAINING = True
-COMPUTE_GRAD = True
