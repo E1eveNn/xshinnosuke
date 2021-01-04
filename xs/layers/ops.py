@@ -53,7 +53,7 @@ class Add(Layer):
             for in_bound in self._in_bounds:
                 self._data.add_in_bounds(in_bound.data)
         elif x.shape[0] < self._data.shape_capacity[0]:
-            if GLOBAL.IS_TRAINING:
+            if GLOBAL.TRAINING:
                 self._data.slices(slice(None, x.shape[0], None))
             else:
                 self._data = Zeros()((x.shape[0],) + self.shape, requires_grad=self.trainable)
@@ -66,7 +66,7 @@ class Add(Layer):
     def forward(self, x: F.Tensor = None, *args, **kwargs) -> F.Tensor:
         for in_bound in self._in_bounds:
             np.add(self._data.eval, in_bound.data.eval, out=self._data.eval)
-            if GLOBAL.IS_TRAINING and in_bound.data.requires_grad:
+            if GLOBAL.TRAINING and in_bound.data.requires_grad:
                 initialize_ops_grad(in_bound.data)
             self._data.requires_grad = self._data.requires_grad or in_bound.data.requires_grad
         return self._data

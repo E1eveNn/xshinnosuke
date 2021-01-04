@@ -124,6 +124,7 @@ def nll_loss(pred: ndarray, target: ndarray, reduction: str = 'mean', out: ndarr
         out = np.divide(sum_val, pred.shape[0], out=out)
     else:
         out = np.multiply(-1, log_probs[np.arange(to_sum_dim), y_flat], out=out)
+    out = np.abs(out)
     return out
 
 

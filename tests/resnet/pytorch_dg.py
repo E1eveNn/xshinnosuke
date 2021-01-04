@@ -4,6 +4,7 @@ from torch.optim import SGD
 from torch.utils.data import DataLoader, Dataset
 import torch
 
+
 class BasicBlock(nn.Module):
     def __init__(self, in_channels, out_channels, stride):
         super().__init__()
@@ -82,6 +83,7 @@ class myData(Dataset):
 
 
 # random generate data
+np.random.seed(0)
 X = np.random.rand(500, 3, 56, 56).astype(np.float32)
 Y = np.random.randint(0, 100, (500,)).astype(np.int64)
 

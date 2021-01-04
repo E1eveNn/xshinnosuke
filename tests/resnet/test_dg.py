@@ -72,6 +72,7 @@ class ResNet18(nn.Module):
 
 
 # random generate data
+np.random.seed(0)
 X = np.random.rand(500, 3, 56, 56)
 Y = np.random.randint(0, 100, (500,))
 
@@ -90,5 +91,5 @@ for epoch in range(EPOCH):
         loss = criterion(pred, y)
         loss.backward()
         optimizer.step()
-        acc, loss_val = criterion.metric(pred, y)
-        print('epoch %d, acc -> %f, loss -> %f' % (epoch, acc, loss_val))
+        acc = criterion.calc_acc(pred, y)
+        print('epoch %d, acc -> %f, loss -> %f' % (epoch, acc, loss.item()))

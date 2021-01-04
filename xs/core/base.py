@@ -9,7 +9,7 @@ class Tensor(object):
             return args[0]
         return super().__new__(cls)
 
-    def __init__(self, data: Union[ndarray, int, float, List], requires_grad: bool = False, dtype: str = 'float32',
+    def __init__(self, data: Union[ndarray, int, float, List], requires_grad: bool = False, dtype: str = None,
                  name: str = None, **kwargs):
 
         if isinstance(data, Tensor):
@@ -29,12 +29,11 @@ class Tensor(object):
         self.__retain_grad = None
         self.__is_leaf = None
         self.next_layers = None
-        self.reset_(np.asarray(data, dtype=dtype_dict[dtype]), requires_grad, name, **kwargs)
+        self.reset_(data, requires_grad, name, dtype, **kwargs)
 
-    def reset_(self, data: Union[ndarray, int, float, List] = None, requires_grad: bool = False, name: str = None,
-               **kwargs):
+    def reset_(self, data: Union[ndarray, int, float, List] = None, requires_grad: bool = False, name: str = None, dtype: str = None, **kwargs):
         if data is not None:
-            self.__data = data
+            self.__data = np.asarray(data, dtype=dtype)
         self.__grad = kwargs.pop('grad', None)
         self.__in_bounds = []
         self.__out_bounds = []
@@ -266,6 +265,16 @@ class Tensor(object):
     def sigmoid(self):
         return F.sigmoid(self)
 
+    def view(self, *shapes):
+        return F.view(self, shapes)
+
+    def size(self, *dims):
+        if len(dims) == 0:
+            return self.shape
+        elif len(dims) == 1:
+            return self.shape[dims[0]]
+        return (self.shape[d] for d in dims)
+
     def backward(self, gradients=None, retain_graph=False):
         if self.grad_fn is None:
             raise ValueError('can not solve grad on %s' % self)
@@ -289,7 +298,9 @@ class Parameter(Tensor):
             return args[0]
         return super().__new__(cls)
 
-    def __init__(self, tensor: Tensor, **kwargs):
-        if isinstance(tensor, Tensor):
-            super(Parameter, self).__init__(tensor.eval, tensor.requires_grad, tensor.dtype, tensor.name,
+    def __init__(self, t: Union[Tensor, ndarray, int, float], **kwargs):
+        if isinstance(t, Tensor):
+            super(Parameter, self).__init__(t.eval, t.requires_grad, t.dtype, t.name,
                                             **kwargs)
+        else:
+            super(Parameter, self).__init__(data=t, requires_grad=True)

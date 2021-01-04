@@ -11,7 +11,7 @@ try:
     np = __import__('cupy')
 except ModuleNotFoundError:
     np = __import__('numpy')
-    warnings.warn('Looks like you\'re using Numpy, try to install Cupy to gain GPU acceleration!')
+    # warnings.warn('Looks like you\'re using Numpy, try to install Cupy to gain GPU acceleration!')
 
 
 ndarray = np.ndarray

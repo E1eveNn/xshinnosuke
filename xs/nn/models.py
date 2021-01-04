@@ -231,9 +231,9 @@ class _Model(_Base):
         total_params = 0
         trainable_params = 0
         for v in self._parameters:
-            total_params += v.data.size
+            total_params += v.eval.size
             if v.requires_grad:
-                trainable_params += v.data.size
+                trainable_params += v.eval.size
         params_details = 'Total params: %d\n' % total_params
         params_details += 'Trainable params: %d\n' % trainable_params
         params_details += 'Non-trainable params: %d\n' % (total_params - trainable_params)
@@ -256,13 +256,16 @@ class Sequential(_Model):
         self.loss.init_layer_out_tensor(x, y)
 
     def init_params(self, input_shape=None):
+        from xs.layers.base import Layer
         for layer in self._graph:
-            layer.init_params(input_shape)
-            for v in layer.parameters():
-                if v is not None:
-                    self._parameters.add(v)
-            input_shape = layer.compute_output_shape(input_shape)
-        self.__initialized = True
+            if isinstance(layer, Layer):
+                if len(layer.parameters()) == 0:
+                    layer.init_params(input_shape)
+                for v in layer.parameters():
+                    if v is not None:
+                        self._parameters.add(v)
+                input_shape = layer.compute_output_shape(input_shape)
+            self.__initialized = True
 
     def compile(self, optimizer, loss, **kwargs):
         assert self._graph
@@ -275,8 +278,8 @@ class Sequential(_Model):
         self.optimizer = get_optimizer(optimizer, parameters=self._parameters, **kwargs)
 
     def forward(self, x, *args, **kwargs):
-        # if not self.__initialized:
-        #     self.init_params(x.shape[1:])
+        if not self.__initialized:
+            self.init_params(x.shape[1:])
         for layer in self._graph:
             x = layer.forward(x)
         return x

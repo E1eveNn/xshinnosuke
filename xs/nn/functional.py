@@ -898,8 +898,9 @@ def view(inputs: Tensor, shape: Tuple, out: Tensor = None) -> Tensor:
     if GLOBAL.INPUTS is None:
         GLOBAL.INPUTS = inputs
     if out is None:
-        out = Tensor(data=np.empty(shape, dtype=inputs.dtype))
-    out.eval = np.reshape(inputs.eval, shape)
+        out = Tensor(data=np.reshape(inputs.eval, shape))
+    else:
+        out.eval = np.reshape(inputs.eval, shape)
     if out.is_dynamic:
         out.add_in_bounds(inputs)
         inputs.add_out_bounds(out)

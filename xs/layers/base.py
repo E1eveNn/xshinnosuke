@@ -48,7 +48,7 @@ class Layer:
         total_params = 0
         for v in self._parameters:
             if v is not None:
-                total_params += v.data.size
+                total_params += v.eval.size
         return total_params
 
     @property

@@ -137,7 +137,7 @@ def format_time(second_time: float) -> str:
 
 
 def gradient_check(inputs, target, layer, criterion, epsilon: float = 1e-4):
-    variables = layer.parameters()
+    variables = list(layer.parameters())
     variables_mathematical_gradient_list = []
     with no_grad():
         for i in range(len(variables)):

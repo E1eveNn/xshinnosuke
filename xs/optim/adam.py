@@ -2,7 +2,7 @@ from optim.optimizer import *
 
 
 class Adam(Optimizer):
-    def __init__(self, parameters=None, lr=0.001, weight_decay=0.0, beta1=0.9, beta2=0.999, epsilon=1e-7):
+    def __init__(self, parameters=None, lr=0.001, weight_decay=0.0, beta1=0.9, beta2=0.999, epsilon=1e-8):
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
@@ -28,5 +28,3 @@ class Adam(Optimizer):
                 var.eval -= self.lr * (v_correct / (np.sqrt(m_correct) + self.epsilon))
                 self.ms[i] = m
                 self.vs[i] = v
-
-        super(Adam, self).step()
