@@ -12,6 +12,17 @@ class Dense(Layer):
         self.activation = get_activator(activation) if activation is not None else None
         super().__init__(**kwargs)
 
+    @property
+    def data(self):
+        return self._data if self.activation is None else self.activation.data
+
+    @data.setter
+    def data(self, v):
+        if self.activation is None:
+            self._data = v
+        else:
+            self.activation.data = v
+
     def compute_output_shape(self, input_shape: Union[List, Tuple] = None) -> Union[List, Tuple]:
         return (self.out_features, )
 

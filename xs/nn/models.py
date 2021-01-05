@@ -1,9 +1,11 @@
 import nn
 from optim import get_optimizer
-from utils.common import *
+from utils.common import GLOBAL, np, List, Tuple
 import nn.functional as F
 import nn.objectives
-
+from utils.toolkit import ProgressBar, format_time, SummaryProfile
+import time
+import pickle
 import utils.data as data
 from collections import defaultdict
 import core.autograd
@@ -49,68 +51,60 @@ class _Model(_Base):
             validation_data: Tuple[np.ndarray] = None,
             validation_split: float = 0.,
             initial_epoch: int = 0,
-            ) -> dict:
+            ) -> SummaryProfile:
 
         x = np.asarray(x)
         y = np.asarray(y)
+        record_data_names = ['train_loss', 'train_acc']
         if validation_data is None and 0. < validation_split < 1.:
             split = int(x.shape[0] * validation_split)
             valid_x, valid_y = x[-split:], y[-split:]
             train_x, train_y = x[:-split], y[:-split]
             validation_data = (valid_x, valid_y)
+            record_data_names.append('validation_loss')
+            record_data_names.append('validation_acc')
         else:
             train_x, train_y = x, y
 
-        history = dict()
         train_dataset = data.DataSet(train_x, train_y)
         train_dataloader = data.DataLoader(train_dataset, batch_size, shuffle)
-        for epoch in range(initial_epoch, epochs):
-            epoch_time = AverageMeter(name='epoch_time')
-            train_loss = AverageMeter(name='train_loss')
-            train_acc = AverageMeter(name='train_acc')
-            valid_loss = AverageMeter(name='validation_loss')
-            valid_acc = AverageMeter(name='validation_acc')
-            history[epoch] = {
-                'epoch_time': epoch_time,
-                'train_loss': train_loss,
-                'train_acc': train_acc,
-                'validation_loss': valid_loss,
-                'validation_acc': valid_acc
-            }
-            start_time = time.time()
+        v_acc, v_loss = 0., 0.
+        with SummaryProfile(*record_data_names) as profile:
+            for epoch in range(initial_epoch, epochs):
+                epoch_start_time = time.time()
+                if verbose != 0:
+                    print('\033[1;31m Epoch[%d/%d]\033[0m' % (epoch + 1, epochs))
+                progress_bar = ProgressBar(max_iter=len(train_x), verbose=verbose)
+                for idx, (batch_x, batch_y) in enumerate(train_dataloader):
+                    if idx == 0 or idx == len(train_dataloader) - 1:
+                        self.init_graph_out_tensor(batch_x, batch_y)
+                    self.train()
+                    # reset trainable_variables grad
+                    self.optimizer.zero_grad()
+                    # forward
+                    pred = self.forward(batch_x)
+                    loss = self.loss.forward(pred, batch_y)
+                    self.backward(loss)
+                    self.optimizer.step()
+                    epoch_time = time.time() - epoch_start_time
+                    train_acc = self.loss.calc_acc(pred, batch_y)
+                    profile.step('train_acc', train_acc)
+                    profile.step('train_loss', loss.item())
 
-            if verbose != 0:
-                print('\033[1;31m Epoch[%d/%d]\033[0m' % (epoch + 1, epochs))
-            progress_bar = ProgressBar(max_iter=len(train_x), verbose=verbose)
+                    if validation_data is not None:
+                        valid_x, valid_y = validation_data
+                        v_acc, v_loss = self.evaluate(valid_x, valid_y, batch_size=batch_size)
+                        profile.step('validation_loss', v_loss)
+                        profile.step('validation_acc', v_acc)
 
-            for idx, (batch_x, batch_y) in enumerate(train_dataloader):
-                if idx == 0 or idx == len(train_dataloader) - 1:
-                    self.init_graph_out_tensor(batch_x, batch_y)
-                self.train()
-                # reset trainable_variables grad
-                self.optimizer.zero_grad()
-                # forward
-                pred = self.forward(batch_x)
-                loss = self.loss.forward(pred, batch_y)
-                self.backward(loss)
-                self.optimizer.step()
+                    progress_bar.update(batch_x.shape[0])
+                    progress_bar.console(verbose, epoch_time, loss.item(), train_acc, v_loss,
+                                         v_acc)
 
-                epoch_time.update(time.time() - start_time)
-                train_loss.update(loss.item())
-                train_acc.update(self.loss.calc_acc(pred, batch_y))
+                if verbose != 0:
+                    print()
 
-                if validation_data is not None:
-                    valid_x, valid_y = validation_data
-                    v_acc, v_loss = self.evaluate(valid_x, valid_y, batch_size=batch_size)
-                    valid_loss.update(v_loss)
-                    valid_acc.update(v_acc)
-
-                progress_bar.update(batch_x.shape[0])
-                progress_bar.console(verbose, epoch_time.val, train_loss.val, train_acc.val, valid_loss.val,
-                                     valid_acc.val)
-            if verbose != 0:
-                print()
-        return history
+        return profile
 
     def __call__(self, x: F.Tensor, *args, **kwargs):
         out = self.forward(x)

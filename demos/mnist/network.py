@@ -25,6 +25,8 @@ def ConvNet(n_classes=10):
         BatchNormalization(),
         ReLU(True),
         Flatten(),
-        Dense(100, activation='relu'),
+        # Dense(100, activation='relu'),
+        Dense(100),
+        ReLU(True),
         Dense(n_classes)
     )

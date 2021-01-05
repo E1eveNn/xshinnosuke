@@ -1,4 +1,56 @@
-from .common import np, List, Union, Any, no_grad
+from .common import np, no_grad
+import warnings
+from collections import OrderedDict
+import time
+import os
+
+
+class SummaryProfile:
+    def __init__(self, *names: str, **kwargs):
+        self.__start_time = None
+        self.__psutil = None
+        self.__data = OrderedDict()
+        for name in names:
+            self.__data[name] = []
+        self.__print_gap = kwargs.pop('print_gap', None)
+        self.__steps = 0
+
+    def __enter__(self):
+        try:
+            self.__psutil = __import__('psutil')
+        except ImportError:
+            warnings.warn('Please install psutil module!')
+        self.__start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        print(f'\033[1;31mTime cost: {format_time(time.time() - self.__start_time)}\033[0m')
+        if self.__psutil is not None:
+            print('\033[1;31mMemory cost：%.4f GB\033[0m' % (self.__psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024))
+
+    def step_all(self, *datas):
+        for i, k in enumerate(self.__data.keys()):
+            self.__data[k].append(datas[i])
+            if self.__print_gap is not None and self.__steps % self.__print_gap == 0:
+                if i == 0:
+                    print('### Step', self.__steps, end=' ### ')
+                print(k, end=': ')
+                if i == len(self.__data) - 1:
+                    print(datas[i])
+                else:
+                    print(datas[i], end=', ')
+        self.__steps += 1
+
+    def step(self, name, value):
+        self.__data[name].append(value)
+
+    def visualize(self):
+        import matplotlib.pyplot as plt
+        for name, value in self.__data.items():
+            plt.figure()
+            plt.plot(value)
+            plt.title(name)
+        plt.show()
 
 
 class ProgressBar:
@@ -76,41 +128,6 @@ class ProgressBar:
             raise ValueError('Verbose only supports for 0, 1 and 2 ~')
 
 
-class AverageMeter(object):
-    def __init__(self, name=None, verbose=0):
-        self.name = name
-        self.val = None
-        self.avg = None
-        self.sums = None
-        self.steps = 0
-        self.verbose = verbose
-        self.reset()
-
-    def reset(self):
-        if self.verbose == 0:
-            self.val = 0.
-            self.avg = 0.
-            self.sums = 0.
-        else:
-            self.val = []
-            self.avg = []
-            self.sums = []
-
-    def update(self, val, step=1):
-        if val is None:
-            self.val = None
-            return
-        self.steps += step
-        if self.verbose == 0:
-            self.val = val
-            self.sums += val * step
-            self.avg = self.sums / self.steps
-        else:
-            self.val.append(val)
-            self.sums.append(self.sums[-1] + val * step)
-            self.avg.append(self.sums[-1] / self.steps)
-
-
 def format_time(second_time: float) -> str:
     if second_time < 1:
         ms = second_time * 1000
@@ -136,22 +153,22 @@ def format_time(second_time: float) -> str:
         return '%ds' % second_time
 
 
-def gradient_check(inputs, target, layer, criterion, epsilon: float = 1e-4):
-    variables = list(layer.parameters())
+def gradient_check(inputs, target, layer, criterion, epsilon=1e-4):
+    variables = layer.parameters()
     variables_mathematical_gradient_list = []
     with no_grad():
         for i in range(len(variables)):
             variable_shape = variables[i].shape
             variable_size = variables[i].numel()
-            flat_variables = variables[i].eval.reshape(-1, 1)
+            flat_variables = variables[i].data.reshape(-1, 1)
             mathematical_gradient = np.zeros((variable_size, ))
             new_flat_add_variable = flat_variables.copy()
             new_flat_minus_variable = flat_variables.copy()
             for j in range(variable_size):
                 new_flat_add_variable[j] += epsilon
                 new_variable = new_flat_add_variable.reshape(variable_shape)
-                variables[i].eval = new_variable
-                layer.parameters(variables)
+                variables[i].data = new_variable
+                layer.set_parameters(variables)
                 out = layer(inputs)
                 loss1 = criterion(out, target)
                 # recover
@@ -159,14 +176,14 @@ def gradient_check(inputs, target, layer, criterion, epsilon: float = 1e-4):
 
                 new_flat_minus_variable[j] -= epsilon
                 new_variable = new_flat_minus_variable.reshape(variable_shape)
-                variables[i].eval = new_variable
-                layer.parameters(variables)
+                variables[i].data = new_variable
+                layer.set_parameters(variables)
                 out = layer(inputs)
                 loss2 = criterion(out, target)
                 # recover
                 new_flat_minus_variable[j] += epsilon
 
-                mathematical_gradient[j] = (loss1.eval - loss2.eval) / (2 * epsilon)
+                mathematical_gradient[j] = (loss1.data - loss2.data) / (2 * epsilon)
             mathematical_gradient = mathematical_gradient.reshape(variable_shape)
             variables_mathematical_gradient_list.append(mathematical_gradient)
     return variables_mathematical_gradient_list

@@ -3,6 +3,7 @@ from xs.utils.data import DataSet, DataLoader
 import xs.nn as nn
 from xs.optim import SGD
 import numpy as np
+import xs
 
 
 class BasicBlock(nn.Module):
@@ -83,13 +84,14 @@ train_data = DataSet(X, Y)
 train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
 optimizer = SGD(net.parameters(), lr=0.1)
 criterion = nn.CrossEntropyLoss()
-
-for epoch in range(EPOCH):
-    for x, y in train_loader:
-        optimizer.zero_grad()
-        pred = net(x)
-        loss = criterion(pred, y)
-        loss.backward()
-        optimizer.step()
-        acc = criterion.calc_acc(pred, y)
-        print('epoch %d, acc -> %f, loss -> %f' % (epoch, acc, loss.item()))
+with xs.SummaryProfile('train_acc', 'train_loss', print_gap=5) as profile:
+    for epoch in range(EPOCH):
+        for x, y in train_loader:
+            optimizer.zero_grad()
+            pred = net(x)
+            loss = criterion(pred, y)
+            loss.backward()
+            optimizer.step()
+            acc = criterion.calc_acc(pred, y)
+            profile.step_all(acc, loss.item())
+profile.visualize()

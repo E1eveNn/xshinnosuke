@@ -42,7 +42,7 @@ def go():
     net = ConvNet()
 
     #########################  Compile
-    net.compile(optimizer='sgd', loss='cross_entropy', lr=0.001)
+    net.compile(optimizer='sgd', loss='cross_entropy', lr=0.01)
 
     #########################  Train Conv
     st = time.time()
