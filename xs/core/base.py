@@ -244,6 +244,12 @@ class Tensor(object):
     def ones_(self):
         self.__data = np.ones_like(self.__data)
 
+    def fill_(self, value):
+        self.__data.fill(value)
+
+    def full(self, value):
+        return Tensor(np.full(self.shape), value)
+
     def zero_grad(self):
         if self.__grad is None:
             self.__grad = Tensor(np.zeros(self.shape, dtype=self.dtype))

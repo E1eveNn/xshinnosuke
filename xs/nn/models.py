@@ -90,7 +90,7 @@ class _Model(_Base):
                 # reset trainable_variables grad
                 self.optimizer.zero_grad()
                 # forward
-                pred = self.forward(batch_x, is_training=True)
+                pred = self.forward(batch_x)
                 loss = self.loss.forward(pred, batch_y)
                 self.backward(loss)
                 self.optimizer.step()
@@ -122,9 +122,8 @@ class _Model(_Base):
     def backward(self, loss: F.Tensor):
         if loss.grad is None:
             loss.zero_grad()
-            loss.grad.ones_()
+            loss.grad.fill_(1.)
         loss.grad_fn(loss)
-        # GLOBAL.reset_node(loss)
         for layer in reversed(self._graph):
             layer.backward()
 

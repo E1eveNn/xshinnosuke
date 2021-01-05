@@ -64,6 +64,7 @@ class Add(Layer):
             self._data.slices(slice(None, None, None))
 
     def forward(self, x: F.Tensor = None, *args, **kwargs) -> F.Tensor:
+        self._data.zero_()
         for in_bound in self._in_bounds:
             np.add(self._data.eval, in_bound.data.eval, out=self._data.eval)
             if GLOBAL.TRAINING and in_bound.data.requires_grad:
@@ -77,4 +78,5 @@ class Add(Layer):
     def backward(self, gradients: F.Tensor = None):
         for in_bound in self._in_bounds:
             if in_bound.data.requires_grad:
-                in_bound.data.grad.data += self._data.grad.data
+                np.add(in_bound.data.grad.eval, self._data.grad.eval, out=in_bound.data.grad.eval)
+        self._data.zero_grad()

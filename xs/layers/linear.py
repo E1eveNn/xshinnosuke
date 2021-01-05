@@ -62,5 +62,4 @@ class Flatten(Layer):
 
     def call(self, x: F.Tensor, *args, **kwargs) -> F.Tensor:
         self._data = F.flatten(x, self.start_dim,  self._data)
-        # x.next_functions.append(self)
         return self._data
