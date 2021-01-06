@@ -6,16 +6,9 @@ from core import __global as GLOBAL
 import time
 
 
-try:
-    np = __import__('cupy')
-except ModuleNotFoundError:
-    np = __import__('numpy')
-    # warnings.warn('Looks like you\'re using Numpy, try to install Cupy to gain GPU acceleration!')
-
-
-ndarray = np.ndarray
-dtype_dict = {'int': np.int, 'float': np.float, 'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
-                  'int64': np.int64, 'float32': np.float32, 'float64': np.float64}
+ndarray = GLOBAL.np.ndarray
+dtype_dict = {'int': GLOBAL.np.int, 'float': GLOBAL.np.float, 'int8': GLOBAL.np.int8, 'int16': GLOBAL.np.int16, 'int32': GLOBAL.np.int32,
+                  'int64': GLOBAL.np.int64, 'float32': GLOBAL.np.float32, 'float64': GLOBAL.np.float64}
 
 
 def overload(func):
@@ -39,9 +32,9 @@ def initialize_ops_grad(*ops):
             op.zero_grad()
 
 
-def im2col(inputs: np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: int, stride: Tuple):
+def im2col(inputs: GLOBAL.np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: int, stride: Tuple):
     batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs.shape
-    col = np.zeros((batch_nums, n_C_prev, kernel_h, kernel_w, out_h, out_w))
+    col = GLOBAL.np.zeros((batch_nums, n_C_prev, kernel_h, kernel_w, out_h, out_w))
 
     for y in range(kernel_h):
         y_max = y + stride[0] * out_h
@@ -53,14 +46,14 @@ def im2col(inputs: np.ndarray, out_h: int, out_w: int, kernel_h: int, kernel_w: 
     return col
 
 
-def col2im(inputs_shape: tuple, pad_size: int, kernel_h: int, kernel_w: int, stride: Tuple, dcol: np.ndarray):
+def col2im(inputs_shape: tuple, pad_size: int, kernel_h: int, kernel_w: int, stride: Tuple, dcol: GLOBAL.np.ndarray):
     batch_nums, n_C_prev, n_H_prev, n_W_prev = inputs_shape  # 填充前的shape
     n_H = (n_H_prev + 2 * pad_size - kernel_h) // stride[0] + 1
     n_W = (n_W_prev + 2 * pad_size - kernel_w) // stride[1] + 1
 
     dcol = dcol.reshape((batch_nums, n_H, n_W, n_C_prev, kernel_h, kernel_w)).transpose(0, 3, 4, 5, 1, 2)
 
-    output = np.zeros(
+    output = GLOBAL.np.zeros(
         (batch_nums, n_C_prev, n_H_prev + 2 * pad_size + stride[0] - 1, n_W_prev + 2 * pad_size + stride[1] - 1))
 
     for y in range(kernel_h):

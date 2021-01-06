@@ -64,7 +64,7 @@ class MAELoss(_Loss):
 class BCELoss(_Loss):
     def calc_acc(self, y_pred: F.Tensor, y_true: F.Tensor):
         pred = y_pred.eval >= 0.5
-        return np.mean(pred == y_true.eval)
+        return GLOBAL.np.mean(pred == y_true.eval)
 
     def call(self, inputs: F.Tensor, target: F.Tensor) -> F.Tensor:
         self._data = F.bce_loss(inputs, target, self.reduction, self._data)
@@ -83,7 +83,7 @@ class CrossEntropyLoss(_Loss):
             else:
                 self._data = Zeros()(inputs.shape)
             self._data.add_in_bounds(inputs, target)
-            inputs.cache['softmax'] = F.Tensor(data=np.empty_like(inputs.eval))
+            inputs.cache['softmax'] = F.Tensor(data=GLOBAL.np.empty_like(inputs.eval))
             self._data.to('static')
         elif inputs.shape[0] < self._data.shape_capacity[0]:
             self._data.slices(slice(None, inputs.shape[0], None))
@@ -99,8 +99,8 @@ class CrossEntropyLoss(_Loss):
         return nn.td_functional.nll_loss(nn.td_functional.log_softmax(y_pred.eval), y_true.eval, self.reduction)
 
     def calc_acc(self, y_pred: F.Tensor, y_true: F.Tensor):
-        acc = (np.argmax(y_pred.eval, axis=-1).ravel() == y_true.eval.ravel())
-        return np.mean(acc).tolist()
+        acc = (GLOBAL.np.argmax(y_pred.eval, axis=-1).ravel() == y_true.eval.ravel())
+        return GLOBAL.np.mean(acc).tolist()
 
     def call(self, inputs: F.Tensor, target: F.Tensor) -> F.Tensor:
         self._data = F.cross_entropy(inputs, target, self.reduction, self._data)
@@ -117,13 +117,13 @@ class CrossEntropyLoss(_Loss):
 #         return super().__call__(y_pred, y_true)
 #
 #     def calc_acc(self, y_pred: F.Tensor, y_true: F.Tensor):
-#         calc_acc = np.argmax(y_pred.data, axis=-1) == np.argmax(y_true.data, axis=-1)
-#         return np.mean(calc_acc).tolist()
+#         calc_acc = GLOBAL.np.argmax(y_pred.data, axis=-1) == GLOBAL.np.argmax(y_true.data, axis=-1)
+#         return GLOBAL.np.mean(calc_acc).tolist()
 #
 #     def calc_loss(self, y_pred: F.Tensor, y_true: F.Tensor):
-#         return -np.sum(
-#             np.multiply(y_true.data, np.log(y_pred.data))) / np.prod(
-#             np.asarray(y_pred.shape[:-1]))
+#         return -GLOBAL.np.sum(
+#             GLOBAL.np.multiply(y_true.data, GLOBAL.np.log(y_pred.data))) / GLOBAL.np.prod(
+#             GLOBAL.np.asarray(y_pred.shape[:-1]))
 #
 #     def forward(self, y_pred: F.Tensor, y_true: F.Tensor):
 #         y_pred.retain_grad()

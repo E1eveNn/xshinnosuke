@@ -87,6 +87,7 @@ criterion = nn.CrossEntropyLoss()
 with xs.SummaryProfile('train_acc', 'train_loss', print_gap=5) as profile:
     for epoch in range(EPOCH):
         for x, y in train_loader:
+            # x, y = x.to('cuda'), y.to('cuda')
             optimizer.zero_grad()
             pred = net(x)
             loss = criterion(pred, y)

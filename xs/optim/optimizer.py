@@ -1,4 +1,4 @@
-from utils.common import np, copy
+from utils.common import copy
 from nn.initializers import Zeros
 
 

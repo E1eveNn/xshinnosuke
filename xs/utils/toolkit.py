@@ -1,4 +1,4 @@
-from .common import np, no_grad
+from .common import no_grad
 import warnings
 from collections import OrderedDict
 import time
@@ -51,6 +51,10 @@ class SummaryProfile:
             plt.plot(value)
             plt.title(name)
         plt.show()
+
+    @property
+    def data(self) -> OrderedDict:
+        return self.__data
 
 
 class ProgressBar:
@@ -154,36 +158,37 @@ def format_time(second_time: float) -> str:
 
 
 def gradient_check(inputs, target, layer, criterion, epsilon=1e-4):
-    variables = layer.parameters()
+    import numpy as np
+    variables = list(layer.parameters())
     variables_mathematical_gradient_list = []
     with no_grad():
         for i in range(len(variables)):
             variable_shape = variables[i].shape
             variable_size = variables[i].numel()
-            flat_variables = variables[i].data.reshape(-1, 1)
+            flat_variables = variables[i].eval.reshape(-1, 1)
             mathematical_gradient = np.zeros((variable_size, ))
             new_flat_add_variable = flat_variables.copy()
             new_flat_minus_variable = flat_variables.copy()
             for j in range(variable_size):
                 new_flat_add_variable[j] += epsilon
-                new_variable = new_flat_add_variable.reshape(variable_shape)
-                variables[i].data = new_variable
-                layer.set_parameters(variables)
+                new_data = new_flat_add_variable.reshape(variable_shape)
+                variables[i].eval = new_data
+                layer.parameters(variables)
                 out = layer(inputs)
                 loss1 = criterion(out, target)
                 # recover
                 new_flat_add_variable[j] -= epsilon
 
                 new_flat_minus_variable[j] -= epsilon
-                new_variable = new_flat_minus_variable.reshape(variable_shape)
-                variables[i].data = new_variable
-                layer.set_parameters(variables)
+                new_data = new_flat_minus_variable.reshape(variable_shape)
+                variables[i].eval = new_data
+                layer.parameters(variables)
                 out = layer(inputs)
                 loss2 = criterion(out, target)
                 # recover
                 new_flat_minus_variable[j] += epsilon
 
-                mathematical_gradient[j] = (loss1.data - loss2.data) / (2 * epsilon)
+                mathematical_gradient[j] = (loss1.eval - loss2.eval) / (2 * epsilon)
             mathematical_gradient = mathematical_gradient.reshape(variable_shape)
             variables_mathematical_gradient_list.append(mathematical_gradient)
     return variables_mathematical_gradient_list

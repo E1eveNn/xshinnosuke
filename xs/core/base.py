@@ -1,4 +1,4 @@
-from utils.common import GLOBAL, np, Union, List, ndarray, dtype_dict
+from utils.common import GLOBAL, Union, List, ndarray
 import core.autograd
 import nn.functional as F
 
@@ -21,7 +21,6 @@ class Tensor(object):
         self.name = None
         self.grad_fn = None
         self.requires_grad = None
-        self.device = None
         self.__slice_items = None
         self.__static_graph_tensor = None
         # max storage tensor's shape
@@ -29,11 +28,13 @@ class Tensor(object):
         self.__retain_grad = None
         self.__is_leaf = None
         self.next_layers = None
+        if dtype is None:
+            dtype = GLOBAL.np.dtype(GLOBAL.np.float32)
         self.reset_(data, requires_grad, name, dtype, **kwargs)
 
     def reset_(self, data: Union[ndarray, int, float, List] = None, requires_grad: bool = False, name: str = None, dtype: str = None, **kwargs):
         if data is not None:
-            self.__data = np.asarray(data, dtype=dtype)
+            self.__data = GLOBAL.np.asarray(data, dtype=dtype)
         self.__grad = kwargs.pop('grad', None)
         self.__in_bounds = []
         self.__out_bounds = []
@@ -48,8 +49,16 @@ class Tensor(object):
         self.__is_leaf = None
         self.next_layers = []
 
+    def free_memory(self):
+        del self.__data
+        del self.__grad
+        self.__data = None
+        self.__grad = None
+
     @property
     def data(self):
+        if self.__data is None:
+            return None
         return Tensor(self.__data, slices=self.__slice_items, static_graph_tensor=self.__static_graph_tensor, grad=self.__grad)
 
     @data.setter
@@ -65,7 +74,7 @@ class Tensor(object):
 
     @eval.setter
     def eval(self, v):
-        self.__data[self.__slice_items] = np.asarray(v)
+        self.__data[self.__slice_items] = GLOBAL.np.asarray(v)
 
     @property
     def shape_capacity(self):
@@ -79,6 +88,11 @@ class Tensor(object):
     @property
     def dtype(self):
         return str(self.__data.dtype)
+
+    @property
+    def device(self):
+        import numpy
+        return "cpu" if isinstance(self.__data, numpy.ndarray) else "cuda"
 
     def slices(self, slices: slice = None):
         if slices is None:
@@ -121,11 +135,47 @@ class Tensor(object):
             return self.__retain_grad
         self.__retain_grad = retain
 
-    def to(self, tensor_type: str = 'static'):
-        if tensor_type == 'static':
+    def to(self, dst: str = 'static'):
+        if dst == 'static':
             self.__static_graph_tensor = True
-        elif tensor_type == 'dynamic':
+        elif dst == 'dynamic':
             self.__static_graph_tensor = False
+        elif dst == 'cuda':
+            if not GLOBAL.USE_CUDA:
+                GLOBAL.USE_CUDA = True
+                GLOBAL.np = __import__('cupy')
+            ret = Tensor(GLOBAL.np.asarray(self.__data), requires_grad=self.requires_grad, dtype=self.dtype, name=self.name)
+            if self.__grad is not None:
+                ret.grad = Tensor(GLOBAL.np.asarray(self.__grad))
+            return ret
+        elif dst == "cpu":
+            if GLOBAL.USE_CUDA:
+                GLOBAL.USE_CUDA = False
+                GLOBAL.np = __import__('numpy')
+            ret = Tensor(self.__reform_ndarray(self.__data), requires_grad=self.requires_grad, dtype=self.dtype,
+                         name=self.name)
+            if self.__grad is not None:
+                ret.grad = Tensor(self.__reform_ndarray(self.__grad))
+            return ret
+
+    def __reform_ndarray(self, target):
+        return GLOBAL.np.asarray(target)
+
+    def cuda_(self):
+        if not GLOBAL.USE_CUDA:
+            GLOBAL.USE_CUDA = True
+            GLOBAL.np = __import__('cupy')
+        self.__data = self.__reform_ndarray(self.__data)
+        if self.__grad is not None:
+            self.__grad = self.__reform_ndarray(self.__grad)
+
+    def cpu_(self):
+        if GLOBAL.USE_CUDA:
+            GLOBAL.USE_CUDA = False
+            GLOBAL.np = __import__('numpy')
+        self.__data = self.__reform_ndarray(self.__data)
+        if self.__grad is not None:
+            self.__grad = self.__reform_ndarray(self.__grad)
 
     def add_in_bounds(self, *ins):
         for i in ins:
@@ -153,12 +203,8 @@ class Tensor(object):
         return self.__in_bounds
 
     def numpy(self):
-        return np.asarray(self.eval)
-
-    def free_(self):
-        del self.__data, self.__grad, self.__in_bounds[:], self.__out_bounds[:], self.name, self.grad_fn, \
-            self.requires_grad, self.device, self.__static_graph_tensor, self.__cache, self.__is_leaf
-        del self
+        import numpy
+        return numpy.asarray(self.eval)
 
     def __getitem__(self, item):
         ret = Tensor(self.data[item], requires_grad=self.requires_grad, slices=item)
@@ -169,9 +215,9 @@ class Tensor(object):
 
     def __setitem__(self, key, value):
         if self.__slice_items is None:
-            self.__data[key] = np.asarray(value, dtype=self.__data.dtype)
+            self.__data[key] = GLOBAL.np.asarray(value, dtype=self.__data.dtype)
         else:
-            self.__data[self.__slice_items][key] = np.asarray(value, dtype=self.__data.dtype)
+            self.__data[self.__slice_items][key] = GLOBAL.np.asarray(value, dtype=self.__data.dtype)
 
     def __repr__(self) -> str:
         requires_grad = f", requires_grad={self.requires_grad}" if self.requires_grad else ""
@@ -236,23 +282,23 @@ class Tensor(object):
         return self.__data.item()
 
     def long_(self):
-        self.__data = self.__data.astype(np.int64)
+        self.__data = self.__data.astype(GLOBAL.np.int64)
 
     def zero_(self):
-        self.__data = np.zeros_like(self.__data)
+        self.__data = GLOBAL.np.zeros_like(self.__data)
 
     def ones_(self):
-        self.__data = np.ones_like(self.__data)
+        self.__data = GLOBAL.np.ones_like(self.__data)
 
     def fill_(self, value):
         self.__data.fill(value)
 
     def full(self, value):
-        return Tensor(np.full(self.shape), value)
+        return Tensor(GLOBAL.np.full(self.shape), value)
 
     def zero_grad(self):
         if self.__grad is None:
-            self.__grad = Tensor(np.zeros(self.shape, dtype=self.dtype))
+            self.__grad = Tensor(GLOBAL.np.zeros(self.shape, dtype=self.dtype))
         else:
             self.__grad.zero_()
 
@@ -286,11 +332,11 @@ class Tensor(object):
             raise ValueError('can not solve grad on %s' % self)
         if gradients is not None:
             assert gradients.size == self.__data.size and gradients.shape == self.shape
-            self.__grad = Tensor(np.asarray(gradients, dtype=self.dtype))
+            self.__grad = Tensor(GLOBAL.np.asarray(gradients, dtype=self.dtype))
         else:
             if self.__data.size == 1:
                 if self.__grad is None:
-                    self.__grad = Tensor(np.array(1., dtype=self.dtype))
+                    self.__grad = Tensor(GLOBAL.np.array(1., dtype=self.dtype))
             else:
                 raise ValueError('grad can be implicitly created only for scalar outputs')
         GLOBAL.OUTPUTS = self

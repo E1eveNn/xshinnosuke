@@ -1,6 +1,6 @@
 import nn
 from optim import get_optimizer
-from utils.common import GLOBAL, np, List, Tuple
+from utils.common import GLOBAL, List, Tuple
 import nn.functional as F
 import nn.objectives
 from utils.toolkit import ProgressBar, format_time, SummaryProfile
@@ -27,6 +27,15 @@ class _Base:
         else:
             self._parameters = set(parameters)
 
+    def to(self, dst: str):
+        if dst == 'cuda':
+            if not GLOBAL.USE_CUDA:
+                GLOBAL.USE_CUDA = True
+                GLOBAL.np = __import__('cupy')
+            for parameter in self._parameters:
+                parameter.cuda_()
+        return self
+
 
 class _Model(_Base):
     def __init__(self):
@@ -36,25 +45,26 @@ class _Model(_Base):
         self._graph = None
 
     def compile(self, optimizer, loss):
-        raise NotImplemented
+        if GLOBAL.USE_CUDA:
+            for parameter in self._parameters:
+                parameter.cuda_()
 
     def init_graph_out_tensor(self, x, y):
         raise NotImplemented
 
     def fit(self,
-            x: np.ndarray,
-            y: np.ndarray,
+            x: GLOBAL.np.ndarray,
+            y: GLOBAL.np.ndarray,
             batch_size: int = None,
             epochs: int = 1,
             verbose: int = 1,
             shuffle: bool = True,
-            validation_data: Tuple[np.ndarray] = None,
+            validation_data: Tuple[GLOBAL.np.ndarray] = None,
             validation_split: float = 0.,
             initial_epoch: int = 0,
             ) -> SummaryProfile:
-
-        x = np.asarray(x)
-        y = np.asarray(y)
+        x = GLOBAL.np.asarray(x)
+        y = GLOBAL.np.asarray(y)
         record_data_names = ['train_loss', 'train_acc']
         if validation_data is None and 0. < validation_split < 1.:
             split = int(x.shape[0] * validation_split)
@@ -76,6 +86,12 @@ class _Model(_Base):
                     print('\033[1;31m Epoch[%d/%d]\033[0m' % (epoch + 1, epochs))
                 progress_bar = ProgressBar(max_iter=len(train_x), verbose=verbose)
                 for idx, (batch_x, batch_y) in enumerate(train_dataloader):
+                    if GLOBAL.USE_CUDA:
+                        batch_x.cuda_()
+                        batch_y.cuda_()
+                    else:
+                        batch_x.cpu_()
+                        batch_y.cpu_()
                     if idx == 0 or idx == len(train_dataloader) - 1:
                         self.init_graph_out_tensor(batch_x, batch_y)
                     self.train()
@@ -121,10 +137,10 @@ class _Model(_Base):
         for layer in reversed(self._graph):
             layer.backward()
 
-    def evaluate(self, x: np.ndarray, y: np.ndarray, batch_size: int = None):
+    def evaluate(self, x: GLOBAL.np.ndarray, y: GLOBAL.np.ndarray, batch_size: int = None):
         self.eval()
-        x = np.asarray(x)
-        y = np.asarray(y)
+        x = GLOBAL.np.asarray(x)
+        y = GLOBAL.np.asarray(y)
         if batch_size is not None:
             assert type(batch_size) is int
             val_dataset = data.DataSet(x, y)
@@ -140,14 +156,14 @@ class _Model(_Base):
                 acc_list.append(metric[0])
                 loss_list.append(metric[1])
 
-            acc = np.array(acc_list).mean().tolist()
-            loss = np.array(loss_list).mean().tolist()
+            acc = GLOBAL.np.array(acc_list).mean().tolist()
+            loss = GLOBAL.np.array(loss_list).mean().tolist()
         else:
             y_pred = self.forward(F.Tensor(x))
             acc, loss = self.loss.metric(y_pred, F.Tensor(y))
         return acc, loss
 
-    def predict(self, x: np.ndarray, batch_size: int = None):
+    def predict(self, x: GLOBAL.np.ndarray, batch_size: int = None):
         self.eval()
         if batch_size is not None:
             assert type(batch_size) is int
@@ -269,6 +285,7 @@ class Sequential(_Model):
         self.init_params()
         self.loss = nn.objectives.get_objective(loss)
         self.optimizer = get_optimizer(optimizer, parameters=self._parameters, **kwargs)
+        super(Sequential, self).compile(optimizer, loss)
 
     def forward(self, x, *args, **kwargs):
         if not self.__initialized:
@@ -305,6 +322,7 @@ class Model(_Model):
                     self._parameters.add(v)
         self.loss = nn.objectives.get_objective(loss)
         self.optimizer = get_optimizer(optimizer, parameters=self._parameters, **kwargs)
+        super(Model, self).compile(optimizer, loss)
 
     def forward(self, x: F.Tensor, *args, **kwargs):
         self.inputs._in_bounds = [x]

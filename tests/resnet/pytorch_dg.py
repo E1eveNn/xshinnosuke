@@ -94,9 +94,11 @@ train_data = myData(X, Y)
 train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
 optimizer = SGD(net.parameters(), lr=0.1)
 criterion = nn.CrossEntropyLoss()
-
+import time
+st = time.time()
 for epoch in range(EPOCH):
     for x, y in train_loader:
+        # x, y = x.to("cuda"), y.to("cuda")
         optimizer.zero_grad()
         pred = net(x)
         loss = criterion(pred, y)
@@ -104,3 +106,4 @@ for epoch in range(EPOCH):
         optimizer.step()
         acc = (torch.max(pred, 1)[1].data.cpu().numpy() == y.data.cpu().numpy()).mean()
         print('epoch %d, acc -> %f, loss -> %f' % (epoch, acc, loss.data.item()))
+print('Time usage: ', time.time() - st)

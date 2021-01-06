@@ -1,6 +1,7 @@
 from utils.data import DataSet
-from utils.common import np, List
+from utils.common import List
 from nn.initializers import Empty
+from core import __global as GLOBAL
 
 
 class DataLoader:
@@ -44,14 +45,14 @@ class DataLoader:
     def __len__(self):
         return len(self.mini_batches)
 
-    def make_batches(self, datas: List[np.ndarray], batch_size: int, seed: int, shuffle: bool = False):
+    def make_batches(self, datas: List[GLOBAL.np.ndarray], batch_size: int, seed: int, shuffle: bool = False):
         if batch_size is None:
             return [datas, ]
-        np.random.seed(seed)
+        GLOBAL.np.random.seed(seed)
         m = datas[0].shape[0]
         if shuffle:
-            permutation = np.random.permutation(m)
-            datas = list(map(lambda x: x[permutation], datas))
+            permutation = GLOBAL.np.random.permutation(m)
+            datas = list(map(lambda x: GLOBAL.np.asarray(x)[permutation], datas))
 
         mini_batches = []
         complete_batch_nums = m // batch_size  # 完整的mini_batch个数

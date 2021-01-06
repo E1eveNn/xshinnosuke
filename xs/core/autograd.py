@@ -4,18 +4,6 @@ import nn
 
 def backward(outputs, inputs, retain_graph=False):
     graph = topological_sort(inputs, outputs)
-    # for node in reversed(graph):
-    #     if node.grad_fn is not None:
-    #         node.grad_fn(node)
-    #     if retain_graph:
-    #         continue
-    #     if node.is_leaf or node.retain_grad():
-    #         node.reset_(node.data, node.requires_grad, node.dtype, node.device, node.name, slices=node.slices(),
-    #                     static_graph_tensor=node.is_static, retain_grad=node.retain_grad(), grad=node.grad)
-    #     else:
-    #         node.free_()
-    #         # del node
-    #         node = None
     for node in reversed(graph):
         if node.grad_fn is not None:
             node.grad_fn(node)
@@ -25,7 +13,7 @@ def backward(outputs, inputs, retain_graph=False):
             node.reset_(requires_grad=node.requires_grad, name=node.name, slices=node.slices(),
                         static_graph_tensor=node.is_static, retain_grad=node.retain_grad(), grad=node.grad)
         else:
-            # del node.grad
+            node.free_memory()
             node.reset_(requires_grad=node.requires_grad, name=node.name, slices=node.slices(),
                         static_graph_tensor=node.is_static)
 
