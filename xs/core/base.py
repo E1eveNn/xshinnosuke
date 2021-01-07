@@ -28,8 +28,6 @@ class Tensor(object):
         self.__retain_grad = None
         self.__is_leaf = None
         self.next_layers = None
-        if dtype is None:
-            dtype = GLOBAL.np.dtype(GLOBAL.np.float32)
         self.reset_(data, requires_grad, name, dtype, **kwargs)
 
     def reset_(self, data: Union[ndarray, int, float, List] = None, requires_grad: bool = False, name: str = None, dtype: str = None, **kwargs):
@@ -138,8 +136,10 @@ class Tensor(object):
     def to(self, dst: str = 'static'):
         if dst == 'static':
             self.__static_graph_tensor = True
+            return self
         elif dst == 'dynamic':
             self.__static_graph_tensor = False
+            return self
         elif dst == 'cuda':
             if not GLOBAL.USE_CUDA:
                 GLOBAL.USE_CUDA = True
@@ -161,6 +161,9 @@ class Tensor(object):
     def __reform_ndarray(self, target):
         return GLOBAL.np.asarray(target)
 
+    def cuda(self):
+        return self.to("cuda")
+
     def cuda_(self):
         if not GLOBAL.USE_CUDA:
             GLOBAL.USE_CUDA = True
@@ -168,6 +171,9 @@ class Tensor(object):
         self.__data = self.__reform_ndarray(self.__data)
         if self.__grad is not None:
             self.__grad = self.__reform_ndarray(self.__grad)
+
+    def cpu(self):
+        return self.to("cpu")
 
     def cpu_(self):
         if GLOBAL.USE_CUDA:
@@ -205,6 +211,10 @@ class Tensor(object):
     def numpy(self):
         import numpy
         return numpy.asarray(self.eval)
+
+    def cupy(self):
+        import cupy
+        return cupy.asarray(self.eval)
 
     def __getitem__(self, item):
         ret = Tensor(self.data[item], requires_grad=self.requires_grad, slices=item)
@@ -260,12 +270,6 @@ class Tensor(object):
     def __rmatmul__(self, other):
         return self.__matmul__(other)
 
-    def dot(self, other):
-        return self.__matmul__(other)
-
-    def mm(self, other):
-        return self.__matmul__(other)
-
     def __truediv__(self, other):
         other = Tensor(other)
         return F.truediv(self, other)
@@ -273,6 +277,15 @@ class Tensor(object):
     def __floordiv__(self, other):
         other = Tensor(other)
         return F.floordiv(self, other)
+
+    def __pow__(self, power, modulo=None):
+        return F.pow(self, exp=power)
+
+    def dot(self, other):
+        return self.__matmul__(other)
+
+    def mm(self, other):
+        return self.__matmul__(other)
 
     def numel(self):
         return self.__data.size

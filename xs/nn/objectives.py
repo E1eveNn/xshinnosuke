@@ -107,34 +107,6 @@ class CrossEntropyLoss(_Loss):
         return self._data
 
 
-# class SparseCrossEntropy(Objective):
-#     # used for one-hot label
-#     def __init__(self):
-#         super().__init__()
-#         self.grad_fn = SparseCrossEntropyBackward
-#
-#     def __call__(self, y_pred: F.Tensor, y_true: F.Tensor):
-#         return super().__call__(y_pred, y_true)
-#
-#     def calc_acc(self, y_pred: F.Tensor, y_true: F.Tensor):
-#         calc_acc = GLOBAL.np.argmax(y_pred.data, axis=-1) == GLOBAL.np.argmax(y_true.data, axis=-1)
-#         return GLOBAL.np.mean(calc_acc).tolist()
-#
-#     def calc_loss(self, y_pred: F.Tensor, y_true: F.Tensor):
-#         return -GLOBAL.np.sum(
-#             GLOBAL.np.multiply(y_true.data, GLOBAL.np.log(y_pred.data))) / GLOBAL.np.prod(
-#             GLOBAL.np.asarray(y_pred.shape[:-1]))
-#
-#     def forward(self, y_pred: F.Tensor, y_true: F.Tensor):
-#         y_pred.retain_grad()
-#         y_pred = softmax(y_pred)
-#         loss_val = self.calc_loss(y_pred, y_true)
-#         loss = F.Tensor(data=loss_val, in_bounds=[y_pred, y_true])
-#         y_pred.out_bounds.append(loss)
-#         loss.grad_fn = self.grad_fn
-#         return loss
-
-
 def get_objective(objective):
     if objective.__class__.__name__ == 'str':
         objective = objective.lower()

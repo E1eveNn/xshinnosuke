@@ -57,22 +57,21 @@ class LayerNormalization(Layer):
         self.epsilon = epsilon
         self.gamma_initializer = get_initializer(gamma_initializer)
         self.beta_initializer = get_initializer(beta_initializer)
-        self.__data = None
         super(LayerNormalization, self).__init__()
 
     def init_params(self, input_shape: Tuple = None, *args):
         if input_shape is not None:
-            self.input_shape = input_shape
-        gamma = self.gamma_initializer(self.input_shape)
-        beta = self.beta_initializer(self.input_shape)
+            self._input_shape = input_shape
+        gamma = F.Parameter(self.gamma_initializer(self._input_shape, requires_grad=True))
+        beta = F.Parameter(self.beta_initializer(self._input_shape, requires_grad=True))
         self._parameters.append(gamma)
         self._parameters.append(beta)
 
     def call(self, x: F.Tensor, *args, **kwargs) -> F.Tensor:
         gamma, beta = self._parameters
-        self.__data = F.layernorm2d(x, gamma, beta,
-                                 self.epsilon, self.__data)
-        return self.__data
+        self._data = F.layer_norm(x, gamma, beta,
+                                 self.epsilon, self._data)
+        return self._data
 
 
 class GroupNormalization(Layer):
@@ -81,22 +80,20 @@ class GroupNormalization(Layer):
         self.G = groups
         self.gamma_initializer = get_initializer(gamma_initializer)
         self.beta_initializer = get_initializer(beta_initializer)
-        self.__data = None
         super(GroupNormalization, self).__init__()
 
     def init_params(self, input_shape: Tuple = None, *args):
         if input_shape is not None:
-            self.input_shape = input_shape
-        c = self.input_shape[0]
+            self._input_shape = input_shape
+        c = self._input_shape[0]
         assert c % self.G == 0
-
-        gamma = self.gamma_initializer((1, c, 1, 1))
-        beta = self.beta_initializer((1, c, 1, 1))
+        gamma = F.Parameter(self.gamma_initializer(c, requires_grad=True))
+        beta = F.Parameter(self.beta_initializer(c, requires_grad=True))
         self._parameters.append(gamma)
         self._parameters.append(beta)
 
     def call(self, x: F.Tensor, *args, **kwargs) -> F.Tensor:
         gamma, beta = self._parameters
-        self.__data = F.groupnorm2d(x, gamma, beta,
-                                 self.epsilon, self.G, self.__data)
-        return self.__data
+        self._data = F.group_norm(x, gamma, beta,
+                                 self.epsilon, self.G, self._data)
+        return self._data

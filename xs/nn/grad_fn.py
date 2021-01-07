@@ -55,6 +55,19 @@ def MultiplyBackward(outputs: Tensor):
             else:
                 # in_bound.grad.eval += outputs.grad.eval * product_except_self_list[i]
                 nn.td_functional.add(in_bound.grad.eval, outputs.grad.eval * product_except_self_list[i], in_bound.grad.eval)
+
+
+def PowBackward(outputs: Tensor):
+    inputs, = outputs.in_bounds
+    if inputs.requires_grad:
+        exp = outputs.cache['exp']
+        if exp == 1:
+            nn.td_functional.add(inputs.grad.eval, outputs.grad.eval, inputs.grad.eval)
+        else:
+            gradients = GLOBAL.np.power(inputs.eval, exp - 1)
+            GLOBAL.np.multiply(gradients, exp, out=gradients)
+            GLOBAL.np.multiply(outputs.grad.eval, gradients, out=gradients)
+            nn.td_functional.add(inputs.grad.eval, gradients, inputs.grad.eval)
                 
 
 def MMBackward(outputs):
@@ -398,7 +411,7 @@ def BatchNormBackward(outputs: Tensor):
         GLOBAL.np.add(inputs.grad.eval, dx_, out=inputs.grad.eval)
 
 
-def Layernorm2DBackward(outputs: Tensor):
+def LayerNormBackward(outputs: Tensor):
     inputs, gamma, beta = outputs.in_bounds
     dnormalized_x = outputs.grad.eval
     if gamma.requires_grad:
@@ -434,7 +447,7 @@ def Layernorm2DBackward(outputs: Tensor):
         GLOBAL.np.add(inputs.grad.eval, dnormalized_x, out=inputs.grad.eval)
 
 
-def Groupnorm2DBackward(outputs: Tensor):
+def GroupNormBackward(outputs: Tensor):
     inputs, gamma, beta = outputs.in_bounds
     dx_norm = outputs.grad.eval
     if gamma.requires_grad:
@@ -489,8 +502,9 @@ def ViewBackward(outputs: Tensor):
 
 def MSELossBackward(outputs: Tensor):
     y_pred, y_true = outputs.in_bounds
-    gradients = GLOBAL.np.divide(GLOBAL.np.multiply(GLOBAL.np.subtract(y_pred.eval, y_true.eval), outputs.grad.eval),
-                          GLOBAL.np.prod(y_pred.shape))
+    gradients =GLOBAL.np.multiply(GLOBAL.np.subtract(y_pred.eval, y_true.eval), outputs.grad.eval)
+    if outputs.cache['reduction'] == 'mean':
+        GLOBAL.np.divide(gradients, GLOBAL.np.prod(y_pred.shape), out=gradients)
     if y_true.requires_grad:
         if y_true.grad is None:
             y_true.grad = Tensor(-gradients)
@@ -509,8 +523,8 @@ def MAEBackward(outputs: Tensor):
     pos = GLOBAL.np.where((y_pred.eval - y_true.eval) < 0)
     mask = GLOBAL.np.ones_like(y_pred.eval)
     mask[pos] = -1
-    GLOBAL.np.divide(mask, y_pred.shape[0], out=mask)
-
+    if outputs.cache['reduction'] == 'mean':
+        GLOBAL.np.divide(mask, y_pred.shape[0], out=mask)
     if y_true.requires_grad:
         if y_true.grad is None:
             y_true.grad = Tensor(mask)
@@ -526,9 +540,10 @@ def MAEBackward(outputs: Tensor):
 
 def BCELossBackward(outputs: Tensor):
     y_pred, y_true = outputs.in_bounds
-    avg = GLOBAL.np.prod(y_pred.shape)
-    gradients = GLOBAL.np.divide(GLOBAL.np.subtract(GLOBAL.np.divide(GLOBAL.np.subtract(1, y_true.eval), GLOBAL.np.subtract(1, y_pred.eval)), GLOBAL.np.divide(y_true.eval, y_pred.eval)), avg)
-
+    gradients = GLOBAL.np.subtract(GLOBAL.np.divide(GLOBAL.np.subtract(1, y_true.eval), GLOBAL.np.subtract(1, y_pred.eval)), GLOBAL.np.divide(y_true.eval, y_pred.eval))
+    if outputs.cache['reduction'] == 'mean':
+        avg = GLOBAL.np.prod(y_pred.shape)
+        GLOBAL.np.divide(gradients, avg, out=gradients)
     if y_true.requires_grad:
         if y_true.grad is None:
             y_true.grad = Tensor(gradients)
@@ -544,10 +559,11 @@ def BCELossBackward(outputs: Tensor):
 
 def BCEWithLogitsLossBackward(outputs: Tensor):
     y_pred, y_true = outputs.in_bounds
-    avg = GLOBAL.np.prod(y_pred.shape)
     logits = nn.td_functional.sigmoid(y_pred.eval)
-    gradients = GLOBAL.np.divide(GLOBAL.np.subtract(GLOBAL.np.divide(GLOBAL.np.subtract(1, y_true.eval), GLOBAL.np.subtract(1, logits)), GLOBAL.np.divide(y_true.eval, logits)), avg)
-
+    gradients = GLOBAL.np.subtract(GLOBAL.np.divide(GLOBAL.np.subtract(1, y_true.eval), GLOBAL.np.subtract(1, logits)), GLOBAL.np.divide(y_true.eval, logits))
+    if outputs.cache['reduction'] == 'mean':
+        avg = GLOBAL.np.prod(y_pred.shape)
+        GLOBAL.np.divide(gradients, avg, out=gradients)
     if y_true.requires_grad:
         if y_true.grad is None:
             y_true.grad = Tensor(gradients)
@@ -585,18 +601,17 @@ def NllLossBackward(outputs: Tensor):
     log_softmax_prob, target = outputs.in_bounds
 
 
-
-def CrossEntropyBackward(outputs: Tensor):
+def CrossEntropyLossBackward(outputs: Tensor):
     before_softmax_y_pred, y_true = outputs.in_bounds
     y_pred = before_softmax_y_pred.cache['softmax']
-    # # before softmax
-    # before_softmax_y_pred,  = y_pred.in_bounds
     to_sum_dim = GLOBAL.np.prod(GLOBAL.np.asarray(before_softmax_y_pred.shape[:-1])).item()
-    n = before_softmax_y_pred.eval.shape[0]
     probs = y_pred.eval.reshape(-1,  before_softmax_y_pred.shape[-1])
     y_flat = y_true.eval.reshape(to_sum_dim)
     probs[GLOBAL.np.arange(to_sum_dim), y_flat] -= 1
-    gradients = GLOBAL.np.divide(probs.reshape(before_softmax_y_pred.shape), n)
+    gradients = probs.reshape(before_softmax_y_pred.shape)
+    if outputs.cache['reduction'] == 'mean':
+        n = before_softmax_y_pred.eval.shape[0]
+        GLOBAL.np.divide(gradients, n, out=gradients)
     gradients = GLOBAL.np.multiply(gradients, outputs.grad.eval, out=gradients)
     if before_softmax_y_pred.requires_grad:
         if before_softmax_y_pred.grad is None:
@@ -619,8 +634,7 @@ def SlicesBackward(outputs: Tensor):
 
 
 def LstmBackward(outputs: Tensor):
-    inputs, = outputs.in_bounds
-    weight, bias = outputs.parameters()
+    inputs, weight, bias = outputs.in_bounds
     units = outputs.cache['units']
     time_steps = outputs.cache['time_steps']
     recurrent_activations = outputs.cache['recurrent_activations']

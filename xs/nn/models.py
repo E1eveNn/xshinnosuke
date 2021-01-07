@@ -34,6 +34,12 @@ class _Base:
                 GLOBAL.np = __import__('cupy')
             for parameter in self._parameters:
                 parameter.cuda_()
+        elif dst == 'cpu':
+            if GLOBAL.USE_CUDA:
+                GLOBAL.USE_CUDA = False
+                GLOBAL.np = __import__('numpy')
+            for parameter in self._parameters:
+                parameter.cpu_()
         return self
 
 

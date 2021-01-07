@@ -58,6 +58,25 @@ def mul(lhs: Tensor, rhs: Tensor, out: Tensor = None) -> Tensor:
     return out
 
 
+def pow(x: Tensor, exp: Union[int, float], out: Tensor = None) -> Tensor:
+    if GLOBAL.INPUTS is None:
+        GLOBAL.INPUTS = x
+    if out is None:
+        out = Tensor(GLOBAL.np.empty_like(x.eval))
+    out.requires_grad = x.requires_grad
+    GLOBAL.np.power(x.eval, exp, out=x.eval)
+
+    if out.is_dynamic:
+        x.add_out_bounds(out)
+        out.add_in_bounds(x)
+
+    if GLOBAL.COMPUTE_GRAD and out.requires_grad:
+        initialize_ops_grad(x)
+        out.cache['exp'] = exp
+        out.grad_fn = PowBackward
+    return out
+
+
 # 矩阵乘法
 def mm(lhs: Tensor, rhs: Tensor, out: Tensor = None) -> Tensor:
     if GLOBAL.INPUTS is None:
@@ -476,7 +495,9 @@ def channel_max_pool(inputs: Tensor, kernel_size: int = 2, stride: int = 1, padd
     if GLOBAL.INPUTS is None:
         GLOBAL.INPUTS = inputs
     if stride is None:
-        stride = kernel_size
+        stride = (kernel_size, kernel_size)
+    elif isinstance(stride, int):
+        stride = (stride, stride)
     if padding != 0:
         data = GLOBAL.np.pad(inputs.eval, ((0, 0), (padding, padding), (0, 0), (0, 0)), 'constant')
     else:
@@ -652,103 +673,6 @@ def dropout2d(inputs: Tensor, keep_prob: float = 0.5, out: Tensor = None) -> Ten
     return out
 
 
-# def batchnorm2d(inputs: Tensor, gamma: Tensor, beta: Tensor, axis: int, epsilon: float = 1e-6,
-#                  momentum: float = 0.99, moving_mean: Tensor = None,
-#                 moving_variance: Tensor = None, out: Tensor = None) -> Tensor:
-#     if GLOBAL.INPUTS is None:
-#         GLOBAL.INPUTS = inputs
-#
-#     inputs.cache['moving_mean'] = moving_mean
-#     inputs.cache['moving_variance'] = moving_variance
-#
-#     if inputs.cache['moving_mean'] is None:
-#         inputs.cache['moving_mean'] = Zeros()(inputs.shape[axis])
-#     if inputs.cache['moving_variance'] is None:
-#         inputs.cache['moving_variance'] = Ones()(inputs.shape[axis])
-#
-#     if out is None:
-#         out = Tensor(data=GLOBAL.np.empty_like(inputs.eval))
-#
-#     data = inputs.eval
-#     ndim = data.ndim
-#
-#     if not (axis == -1 or axis == ndim - 1):
-#         data = GLOBAL.np.swapaxes(data, axis, -1)
-#
-#     before_reshape_shape = data.shape
-#     data = data.reshape(-1, inputs.shape[axis])
-#
-#     small_batch_out_slices = None
-#     if out.shape[0] < out.shape_capacity[0]:
-#         small_batch_out_slices = slice(None, out.shape[0], None)
-#         out.slices(None)
-#         out.eval = GLOBAL.np.reshape(out.eval, (-1, inputs.shape[axis]))
-#         out.slices(slice(None, data.shape[0], None))
-#     else:
-#         out.eval = GLOBAL.np.reshape(out.eval, data.shape)
-#
-#     xmu = None
-#     sqrtvar = None
-#     normalized_x = None
-#     if GLOBAL.COMPUTE_GRAD:
-#         # calc mean
-#         mean = GLOBAL.np.mean(data, axis=0)
-#         # calc var
-#         var = GLOBAL.np.var(data, axis=0)
-#         # x minus u
-#         xmu = GLOBAL.np.subtract(data, mean)
-#         sqrtvar = GLOBAL.np.sqrt(var + epsilon)
-#         normalized_x = GLOBAL.np.divide(xmu, sqrtvar)
-#         GLOBAL.np.multiply(gamma.eval, normalized_x, out=out.eval)
-#         GLOBAL.np.add(out.eval, beta.eval, out=out.eval)
-#
-#         # update moving mean
-#         moving_mean = inputs.cache['moving_mean']
-#         GLOBAL.np.multiply(momentum, moving_mean.eval, out=moving_mean.eval)
-#         GLOBAL.np.multiply(1 - momentum, mean, out=mean)
-#         GLOBAL.np.add(moving_mean.eval, mean, out=moving_mean.eval)
-#         # update moving variance
-#         moving_variance = inputs.cache['moving_variance']
-#         GLOBAL.np.multiply(momentum, moving_variance.eval, out=moving_variance.eval)
-#         GLOBAL.np.multiply(1 - momentum, var, out=var)
-#         GLOBAL.np.add(moving_variance.eval, var, out=moving_variance.eval)
-#
-#     else:
-#         moving_variance = GLOBAL.np.add(inputs.cache['moving_variance'].eval, epsilon)
-#         GLOBAL.np.sqrt(moving_variance, out=moving_variance)
-#         GLOBAL.np.divide(gamma.eval, moving_variance, out=moving_variance)
-#
-#         moving_mean = GLOBAL.np.multiply(moving_variance, inputs.cache['moving_mean'].eval)
-#         GLOBAL.np.subtract(beta.eval, moving_mean, out=moving_mean)
-#         GLOBAL.np.multiply(data, moving_variance, out=data)
-#         GLOBAL.np.add(data, moving_variance, out=out.eval)
-#
-#     if small_batch_out_slices is not None:
-#         out.slices(None)
-#         out.eval = GLOBAL.np.reshape(out.eval, (-1, ) + before_reshape_shape[1:])
-#     else:
-#         out.eval = GLOBAL.np.reshape(out.eval, before_reshape_shape)
-#     if not (axis == -1 or axis == ndim - 1):
-#         # for instance,outputs:(N,W,H,C), self.axis=1, after swapaxes,outputs:(N,C,H,W)
-#         out.eval = GLOBAL.np.swapaxes(out.eval, axis, -1)
-#     out.slices(small_batch_out_slices)
-#
-#     out.requires_grad = inputs.requires_grad or gamma.requires_grad or beta.requires_grad
-#     if out.is_dynamic:
-#         out.add_in_bounds(inputs, gamma, beta)
-#         inputs.add_out_bounds(out)
-#         gamma.add_out_bounds(out)
-#         beta.add_out_bounds(out)
-#
-#     if GLOBAL.COMPUTE_GRAD and out.requires_grad:
-#         out.cache['xmu'] = xmu
-#         out.cache['axis'] = axis
-#         out.cache['sqrtvar'] = sqrtvar
-#         out.cache['normalized_x'] = normalized_x
-#         out.grad_fn = Batchnorm2DBackward
-#         initialize_ops_grad(inputs, gamma, beta)
-#     return out
-
 def batch_norm(inputs: Tensor, gamma: Tensor, beta: Tensor, moving_mean: Tensor, moving_variance: Tensor, axis: int = 1,
                training: bool = True, epsilon: float = 1e-5, momentum: float = 0.9, out: Tensor = None) -> Tensor:
 
@@ -816,25 +740,23 @@ def batch_norm(inputs: Tensor, gamma: Tensor, beta: Tensor, moving_mean: Tensor,
     return out
 
 
-def layernorm2d(inputs: Tensor, gamma: Tensor, beta: Tensor, epsilon: float = 1e-10, out: Tensor = None) -> Tensor:
+def layer_norm(inputs: Tensor, gamma: Tensor, beta: Tensor, epsilon: float = 1e-10, out: Tensor = None) -> Tensor:
     if GLOBAL.INPUTS is None:
         GLOBAL.INPUTS = inputs
     if out is None:
         out = Tensor(data=GLOBAL.np.empty_like(inputs.eval))
-
-    data = inputs.eval
-    shape_field = tuple([i for i in range(1, data.ndim)])
+    shape_field = tuple([i for i in range(1, inputs.eval.ndim)])
     # calc mean
-    xmu = GLOBAL.np.mean(data, axis=shape_field, keepdims=True)
+    xmu = GLOBAL.np.mean(inputs.eval, axis=shape_field, keepdims=True)
     # calc var
-    sqrtvar = GLOBAL.np.var(data, axis=shape_field, keepdims=True)
+    sqrtvar = GLOBAL.np.var(inputs.eval, axis=shape_field, keepdims=True)
     # x minus u
-    GLOBAL.np.subtract(data, xmu, out=xmu)
+    GLOBAL.np.subtract(inputs.eval, xmu, out=xmu)
     GLOBAL.np.sqrt(sqrtvar + epsilon, out=sqrtvar)
 
     normalized_x = GLOBAL.np.divide(xmu, sqrtvar)
-    GLOBAL.np.multiply(gamma.eval, normalized_x, out=out.eval)
-    GLOBAL.np.add(out.eval, beta.eval, out=out.eval)
+    GLOBAL.np.multiply(nn.td_functional.expand_as(gamma.eval, out.eval), normalized_x, out=out.eval)
+    GLOBAL.np.add(out.eval, nn.td_functional.expand_as(beta.eval, out.eval), out=out.eval)
     if out.is_dynamic:
         out.add_in_bounds(inputs, gamma, beta)
         inputs.add_out_bounds(out)
@@ -848,22 +770,20 @@ def layernorm2d(inputs: Tensor, gamma: Tensor, beta: Tensor, epsilon: float = 1e
         out.cache['xmu'] = xmu
         out.cache['sqrtvar'] = sqrtvar
         out.cache['normalized_x'] = normalized_x
-        out.grad_fn = Layernorm2DBackward
+        out.grad_fn = LayerNormBackward
         initialize_ops_grad(inputs, gamma, beta)
     return out
 
 
-def groupnorm2d(inputs: Tensor, gamma: Tensor, beta: Tensor,  epsilon: float = 1e-5,
-                groups: int = 16, out: Tensor = None) -> Tensor:
+def group_norm(inputs: Tensor, gamma: Tensor, beta: Tensor,  epsilon: float = 1e-5, groups: int = 16, out: Tensor = None) -> Tensor:
     if GLOBAL.INPUTS is None:
         GLOBAL.INPUTS = inputs
     if out is None:
         out = Tensor(data=GLOBAL.np.empty_like(inputs.eval))
 
-    data = inputs.eval
-    n, c, h, w = data.shape
-    shape_field = tuple([i for i in range(2, data.ndim)])
-    data = GLOBAL.np.reshape(data, (n, groups, c // groups, h, w))
+    n, c, h, w = inputs.eval.shape
+    shape_field = tuple([i for i in range(2, inputs.eval.ndim)])
+    data = GLOBAL.np.reshape(inputs.eval, (n, groups, c // groups, h, w))
     xgmu = GLOBAL.np.mean(data, axis=shape_field, keepdims=True)
     sqrtvar = GLOBAL.np.var(data, axis=shape_field, keepdims=True)
     GLOBAL.np.subtract(data, xgmu, out=xgmu)
@@ -871,8 +791,8 @@ def groupnorm2d(inputs: Tensor, gamma: Tensor, beta: Tensor,  epsilon: float = 1
 
     x_group_norm = GLOBAL.np.divide(xgmu, sqrtvar)
     x_norm = GLOBAL.np.reshape(x_group_norm, (n, c, h, w))
-    GLOBAL.np.multiply(gamma.eval, x_norm, out=out.eval)
-    GLOBAL.np.add(out.eval, beta.eval, out=out.eval)
+    GLOBAL.np.multiply(nn.td_functional.expand_as(gamma.eval, out.eval), x_norm, out=out.eval)
+    GLOBAL.np.add(out.eval, nn.td_functional.expand_as(beta.eval, out.eval), out=out.eval)
 
     if out.is_dynamic:
         out.add_in_bounds(inputs, gamma, beta)
@@ -886,7 +806,7 @@ def groupnorm2d(inputs: Tensor, gamma: Tensor, beta: Tensor,  epsilon: float = 1
         out.cache['xgmu'] = xgmu
         out.cache['sqrtvar'] = sqrtvar
         out.cache['x_norm'] = x_norm
-        out.grad_fn = Groupnorm2DBackward
+        out.grad_fn = GroupNormBackward
         initialize_ops_grad(inputs, gamma, beta)
     return out
 
@@ -1000,8 +920,6 @@ def bce_with_logits_loss(x1: Tensor, x2: Tensor, reduction: str = 'mean', out: T
             raise TypeError('unknown type for reduction')
 
     pred = nn.td_functional.sigmoid(x1.eval)
-    # max_val = GLOBAL.np.clip(-pred, 0, None)
-    # loss_val = GLOBAL.np.add(GLOBAL.np.add(GLOBAL.np.subtract(pred, GLOBAL.np.multiply(pred, x2.eval)), max_val), GLOBAL.np.log(GLOBAL.np.add(GLOBAL.np.exp(-max_val), GLOBAL.np.exp(GLOBAL.np.subtract(-pred, max_val)))))
     nn.td_functional.bce_loss(pred, x2.eval, reduction, out.eval)
     if out.is_dynamic:
         out.add_in_bounds(x1, x2)
@@ -1087,7 +1005,7 @@ def cross_entropy(x1: Tensor, x2: Tensor, reduction: str = 'mean', out: Tensor =
     out.requires_grad = x1.requires_grad or x2.requires_grad
     if GLOBAL.COMPUTE_GRAD and out.requires_grad:
         out.cache['reduction'] = reduction
-        out.grad_fn = CrossEntropyBackward
+        out.grad_fn = CrossEntropyLossBackward
         initialize_ops_grad(x1, x2)
     return out
 

@@ -90,7 +90,8 @@ np.random.seed(0)
 X = np.random.rand(500, 3, 56, 56).astype(np.float32)
 Y = np.random.randint(0, 100, (500,)).astype(np.int64)
 
-
+import torch.nn
+torch.nn.LayerNorm()
 net = ResNet18().to("cuda")
 EPOCH = 5
 train_data = myData(X, Y)
