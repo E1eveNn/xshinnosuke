@@ -27,15 +27,15 @@ XS is compatible with: **Python 3.x (3.7 is recommended)**                  [==>
 
 #### Compared with Pytorch and Keras
 
-| ResNet18(5 Epochs, 32 Batch_size) | XS_static_graph(cpu) | XS_dynamic_graph(cpu) | Pytorch(cpu)      | Keras(cpu)        |
-| --------------------------------- | -------------------- | --------------------- | ----------------- | ----------------- |
-| Speed(Ratio - seconds)            | **1x** - *65.05*     | **0.98x** - 66.33     | **2.67x** - 24.39 | **0.83x** - 78.59 |
-| Memory(Ratio - GB)                | **1x** - *0.47*      | **0.47x**- 0.22       | **0.55x** - 0.26  | **1.47x** - 0.69  |
+| ResNet18(5 Epochs, 32 Batch_size) | XS_static_graph(cpu) | XS_dynamic_graph(cpu) | Pytorch(cpu)      | Keras(cpu)     |
+| --------------------------------- | -------------------- | --------------------- | ----------------- | -------------- |
+| Speed(Ratio - seconds)            | *1x* - *65.05*       | *0.98x* - 66.33       | **2.67x** - 24.39 | *1.8x* - 35.97 |
+| Memory(Ratio - GB)                | *1x* - *0.47*        | **0.47x**- 0.22       | *0.55x* - 0.26    | *0.96x* - 0.45 |
 
-| ResNet18(5 Epochs, 32 Batch_size) | XS_static_graph(gpu) | XS_dynamic_graph(gpu) | Pytorch(gpu)     | Keras(gpu)       |
-| --------------------------------- | -------------------- | --------------------- | ---------------- | ---------------- |
-| Speed(Ratio - seconds)            | **1x** - *9.64*      | **1.02x** - 9.45      | **3.47x** - 2.78 | **0.5x** - 19.46 |
-| Memory(Ratio - GB)                | **1x** - *0.48*      | **1.02x** - 0.49      | **4.4x** - 2.11  | **4.48x** - 2.15 |
+| ResNet18(5 Epochs, 32 Batch_size) | XS_static_graph(gpu) | XS_dynamic_graph(gpu) | Pytorch(gpu)     | Keras(gpu)     |
+| --------------------------------- | -------------------- | --------------------- | ---------------- | -------------- |
+| Speed(Ratio - seconds)            | *1x* - *9.64*        | *1.02x* - 9.45        | **3.47x** - 2.78 | *1.07x* - 9.04 |
+| Memory(Ratio - GB)                | **1x** - *0.48*      | *1.02x* - 0.49        | *4.4x* - 2.11    | *4.21x* - 2.02 |
 
 **XS holds the best memory usage!**
 
