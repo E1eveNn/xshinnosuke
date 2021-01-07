@@ -1,6 +1,9 @@
 from xs.layers import Dense, Flatten, Conv2D, MaxPooling2D, AvgPooling2D, BatchNormalization, Activation, Add, Input
 from xs.nn.models import Model
 import numpy as np
+import psutil
+import time
+import os
 
 
 def identity_block(X, filters, stage, block, s):
@@ -92,5 +95,8 @@ y = np.random.randint(0, 100, (500,))
 net = ResNet18().to("cuda")
 net.compile(optimizer='sgd', loss='cross_entropy', lr=0.1)
 # print(net)
+st = time.time()
 history = net.fit(x, y, batch_size=32, epochs=5)
+print('Time usage: ', time.time() - st)
+print('Memory usage: ', psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024)
 # history.visualize()

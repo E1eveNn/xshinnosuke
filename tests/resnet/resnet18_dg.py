@@ -4,6 +4,9 @@ import xs.nn as nn
 from xs.optim import SGD
 import numpy as np
 import xs
+import psutil
+import time
+import os
 
 
 class BasicBlock(nn.Module):
@@ -78,21 +81,24 @@ X = np.random.rand(500, 3, 56, 56)
 Y = np.random.randint(0, 100, (500,))
 
 
-net = ResNet18()
+net = ResNet18().to("cuda")
 EPOCH = 5
 train_data = DataSet(X, Y)
 train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
 optimizer = SGD(net.parameters(), lr=0.1)
 criterion = nn.CrossEntropyLoss()
-with xs.SummaryProfile('train_acc', 'train_loss', print_gap=5) as profile:
-    for epoch in range(EPOCH):
-        for x, y in train_loader:
-            # x, y = x.to('cuda'), y.to('cuda')
-            optimizer.zero_grad()
-            pred = net(x)
-            loss = criterion(pred, y)
-            loss.backward()
-            optimizer.step()
-            acc = criterion.calc_acc(pred, y)
-            profile.step_all(acc, loss.item())
-profile.visualize()
+st = time.time()
+# with xs.SummaryProfile('train_acc', 'train_loss', print_gap=5) as profile:
+for epoch in range(EPOCH):
+    for x, y in train_loader:
+        x, y = x.to('cuda'), y.to('cuda')
+        optimizer.zero_grad()
+        pred = net(x)
+        loss = criterion(pred, y)
+        loss.backward()
+        optimizer.step()
+        acc = criterion.calc_acc(pred, y)
+        # profile.step_all(acc, loss.item())
+print('Time usage: ', time.time() - st)
+print('Memory usage: ', psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024)
+# profile.visualize()

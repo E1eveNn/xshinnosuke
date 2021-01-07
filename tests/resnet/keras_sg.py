@@ -2,16 +2,15 @@ import numpy as np
 from keras.layers import Input, Add, Dense, Activation, ZeroPadding2D, BatchNormalization, Flatten, Conv2D, AveragePooling2D, MaxPooling2D, GlobalMaxPooling2D
 from keras.models import Model, load_model
 from keras.initializers import glorot_uniform
-
-# import pydot
-# from IPython.display import SVG
-# import scipy.misc
-# from matplotlib.pyplot import imshow
 import keras.backend as K
 K.set_image_data_format('channels_last')
 K.set_learning_phase(1)
+import psutil
+import time
+import os
 
 
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 i = 0
 
 #输入输出维度一致的情况
@@ -214,13 +213,17 @@ def ResNet50(input_shape,classes):
 
 
 #加载数据
-x = np.random.rand(500, 3, 64, 64)
+np.random.seed(0)
+x = np.random.rand(500, 64, 64, 3)
 y = np.random.randint(0, 100, (500,))
 
-model=ResNet50([64,64,3],100)
-model.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
-print(model.summary())
-# model.fit(X_train,Y_train,epochs=20,batch_size=32)
+model=ResNet50([64,64,3], 100)
+model.compile(optimizer='sgd',loss='sparse_categorical_crossentropy',metrics=['accuracy'])
+# print(model.summary())
+st = time.time()
+model.fit(x,y,epochs=5,batch_size=32)
+print('Time usage: ', time.time() - st)
+print('Memory usage: ', psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024 / 1024)
 # preds=model.evaluate(X_test,Y_test)
 # print("loss:",preds[0])
 # print("accuracy:",preds[1])
